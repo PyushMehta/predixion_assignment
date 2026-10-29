@@ -48,6 +48,7 @@ agent/
   synthesizer.py   # model writes the answer only; we attach sources; fallback response on failure;
                    # code trims short_answer <=1500 to 1000, caps future questions at low,
                    # splits next_steps to one action each
+  orchestrator.py  # guardrail: "high" needs 3+ cited full-page sources from different non-vendor sites
   orchestrator.py  # run(question) -> RunResult; budgets: 2 LLM calls, 4 scrapes, 90s for the
                    # WHOLE run (planner + gathering by 60s, synthesis gets the rest); trace -> runs/
 eval/queries.yaml     # 8 eval queries with id, category, EXPECTED behaviour (written before running)
@@ -60,6 +61,8 @@ scripts/try_planner.py # manual real-LLM smoke test of the planner
 tests/                # pytest, no network: tools take `client=` (httpx.MockTransport),
                       # LLM code takes `providers=` (tests/llm_fakes.py FakeClient)
 main.py               # CLI: python main.py "question" [--json]; writes outputs/<run_id>.json/.md
+app.py                # optional Streamlit demo UI: ONLY calls orchestrator.run() and displays the
+                      # RunResult (no agent logic); outage switch = providers_from_env(simulate_primary_outage=True)
 NOTES.md              # design decisions + known limitations, per phase
 ```
 
@@ -71,6 +74,7 @@ NOTES.md              # design decisions + known limitations, per phase
   evaluation-driven fixes + after run + comparison (done) → later phases as specified by the user.
 - Reliability rule learned in Phase 5: every retry path (LLM retries, repair, provider failover)
   must respect the overall run deadline.
+- Demo switch LLM_SIMULATE_PRIMARY_OUTAGE=1 (off by default) makes the primary LLM fail; never leave it on.
 - Evaluation: never write judgements of answer quality yourself; the user fills in the manual
   review columns. Don't fix retrieval issues found by eval until asked: the user wants
   before/after numbers, so keep the baseline results file unchanged. Follow the user's written spec for each phase.

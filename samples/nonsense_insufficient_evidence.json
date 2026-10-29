@@ -1,0 +1,16 @@
+{
+  "question": "What are the qzxv flurbonic tensor ratings for 2031?",
+  "short_answer": "Insufficient evidence: the agent found no usable sources for this question, so it cannot give an answer.",
+  "key_findings": [],
+  "sources": [],
+  "confidence": "low",
+  "confidence_reason": "No usable sources were found.",
+  "assumptions": [],
+  "limitations": [
+    "No usable sources were found, so no claims could be checked."
+  ],
+  "next_steps": [
+    "Rephrase the question with more specific terms.",
+    "Try again later in case search was temporarily unavailable."
+  ]
+}
