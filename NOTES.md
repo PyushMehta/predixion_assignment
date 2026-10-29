@@ -63,6 +63,76 @@ What this means for `llm.py`:
 
 ---
 
+## Overconfidence guardrail, outage switch, final run
+
+### Overconfidence guardrail (orchestrator, after synthesis)
+
+**Rule.** "high" survives only if the findings cite **3+ full-page sources
+from different organisations, none of them the vendor of something the
+question or answer names**. Otherwise it's lowered to medium, and
+`confidence_reason` says what counted and what didn't, e.g. "found 1
+(blog.elest.io); not counted: github.com (vendor of something the answer
+evaluates), medium.com (snippet only)". It's recorded in `trace.guardrails`
+and the limitations.
+
+- **Only cited sources count.** An uncited page supports nothing.
+- **"Different organisations"** uses `site_name()`: the registrable domain
+  name (`blog.zilliz.com` → `zilliz`, two-part suffixes like `.co.uk`
+  handled), or the repository owner on GitHub/GitLab/Hugging Face.
+- **Vendor detection is deterministic and conservative.** A source is a
+  vendor if its site name equals a *proper name* in the question or answer.
+  A proper name is a capitalised word that never appears in lower case
+  (Milvus, greytHR, Zilliz), so `wind.example` doesn't match "wind".
+  Authoritative sources (gov/edu, research publishers) are never vendors.
+- 11 tests: site names, entity extraction, vendor detection, the rule's
+  cases (snippet-only, same organisation, vendor, uncited) and end to end.
+
+**Limitations.** Vendors of *adjacent* products and consultancies aren't
+detected: in the final run, two answers kept "high" on full pages from
+Dataiku, Atlan, PingCAP, Splunk and similar, which meet the rule but are
+commercial content. A capitalised sentence-initial word ("Medium …") counts as
+a name, so medium.com could be wrongly treated as a vendor (documented in the
+tests).
+
+### Primary-outage switch for demos
+
+`LLM_SIMULATE_PRIMARY_OUTAGE=1` (off by default; also `true/yes/on`) makes
+`providers_from_env()` give the primary a client that fails every request
+with a connection error, an availability failure, so the real failover
+path runs. It's logged as a `SIMULATED OUTAGE` warning. The UI checkbox
+passes the same switch explicitly per run (overriding the env var), and tests
+clear the variable so a developer's shell can't leak it in. Live check: Groq
+failed in 1ms, Gemini answered plan and synthesis, 63.2s total.
+
+### Why the 45.7s vector-DB run was slow (trace analysis)
+
+Plan 3.1s (Groq), 6 parallel searches ≤3.0s, 4 parallel scrapes ≤3.7s,
+**synthesis 33.9s, answered by the Gemini fallback** (74% of the run), ~2s
+other. Failover only happens on availability errors, so Groq returned
+429/5xx/timeouts. **Trace gap:** the trace stores only the provider that finally
+answered, not why the primary failed. The reason was only in the log.
+Recording each failed attempt's error in the trace is a recommended next step.
+
+### Final eval run (`eval/results/20261029-225924`, 9 queries)
+
+**Confounded; read with care.** Groq's *daily* token quota was exhausted
+by the day's testing, so the Gemini fallback answered nearly every LLM call
+(failover worked every time: quota errors aren't retried). The local network
+was also unstable: india_hrtech_saas searches took ~16s and all its scrapes
+timed out, and during prompt_injection DNS failed for every host. No manual
+review was done for this run; a clean re-run after the Groq quota resets is
+needed before judging answer quality.
+
+Deterministic results it still shows: no crashes, schema/citations/confidence
+rules 9/9, 0 runs over 90s (max 59.4s); the guardrail downgraded vector_dbs
+from high to medium; simple_fact went snippets-only (0 pages, "Canberra",
+medium, 4.9s). New finding: **the Gemini planner set `needs_full_pages=false`
+for nuclear_vs_wind**, so OWID wasn't read. Tool selection depends on the
+planner model, and a code-level override for questions asking for numbers or
+comparisons would make it robust.
+
+---
+
 ## Task-dependent tool selection (`needs_full_pages`)
 
 **Decision.** `Plan` gained `needs_full_pages: bool` (schema change requested by

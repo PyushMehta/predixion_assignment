@@ -44,3 +44,40 @@ Candidate next fix: allow "high" only with 3+ *full-page*, non-vendor sources, e
 So the agent went from never clearly better than a single LLM call to clearly better on 3 of 8 and
 worse on 1. Its main advantage remains traceability: this review could only find the
 competitor-written positioning because the agent cited its sources.
+
+## Final run (`20261029-225924`): overconfidence guardrail + tool selection, 9 queries
+
+**Read this column with care: the run is confounded.**
+- **Different LLM.** Groq's *daily* token quota ran out after a day of testing,
+  so nearly every planner and synthesis call was answered by the Gemini
+  fallback (`daily quota exhausted (not retrying)` → failover, as designed).
+  "Before" and "after" were mostly Groq. Latency and answer differences in
+  this column are largely Groq-vs-Gemini, not the code changes.
+- **Unstable local network.** During india_hrtech_saas, searches took ~16s
+  (normally ~2s) and all 4 scrapes timed out. During prompt_injection, DNS
+  resolution failed for every host (`getaddrinfo failed`), so both LLM
+  providers and Tavily failed within milliseconds. The agent degraded
+  correctly (fallback plan, then insufficient evidence), but those two rows
+  don't reflect normal operation.
+- Manual review was **not** done for this run because of the confounds
+  (shown as "?"). A clean re-run after the Groq quota resets is needed before
+  judging answer quality.
+
+What the run still shows (deterministic code, not provider-dependent):
+- **Overconfidence guardrail works:** vector_dbs was answered "high" and
+  downgraded to medium. Only 1 cited full-page source was independent: the
+  GitHub repos are the evaluated products' own (vendor) and the Medium
+  post was snippet-only. The reason is written into `confidence_reason`.
+  multi_agent_support and support_agent_memory kept "high" legitimately
+  under the rule (3–4 cited, full-page, non-vendor sites). Manual-review
+  caveat: those sites are mostly vendors of *adjacent* products and
+  consultancies, which a rule based on named products can't detect.
+- **Tool selection:** simple_fact (new) → `needs_full_pages=false`, 0 pages,
+  "Canberra", medium (snippet cap), 4.9s. world_cup and nonsense also went
+  snippets-only, which is reasonable. **But nuclear_vs_wind got
+  `needs_full_pages=false` from the Gemini planner**, so Our World in Data
+  was not read. That's a wrong decision on a question that needs figures,
+  and it shows the decision is model-dependent (Groq set true for comparison
+  questions in the live check).
+- Failover under quota exhaustion worked on every call: no crashes,
+  schema/citations/confidence rules 9/9, 0 runs over the 90s budget (max 59.4s).

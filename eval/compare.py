@@ -1,11 +1,12 @@
-"""Before/after comparison of two eval result files.
+"""Compare two or more eval result files side by side (e.g. before / after / final).
 
-    python eval/compare.py eval/results/BEFORE.json eval/results/AFTER.json [-o eval/results/comparison.md]
+    python eval/compare.py BEFORE.json AFTER.json [FINAL.json ...] [--labels before,after,final]
+                           [--notes eval/results/comparison_notes.md] [-o eval/results/comparison.md]
 
-Both runs are re-scored with the CURRENT definitions (agent/quality.py buckets,
-deadline_hit = total run time over the run budget), so a change in a metric
-reflects the agent, not a change in how it is measured. Where the old harness
-measured something differently, the old figure is shown too.
+All runs are re-scored with the CURRENT definitions (agent/quality.py buckets,
+over budget = total run time above the run deadline), so a change in a metric
+reflects the agent, not a change in how it is measured. Aggregate metrics use
+only the queries present in every run; queries added later get their own table.
 """
 
 import argparse
@@ -20,6 +21,7 @@ from agent.orchestrator import RUN_DEADLINE_S  # noqa: E402
 from agent.quality import classify_url, domain_of  # noqa: E402
 
 BUCKETS = ("low", "authoritative", "docs_code", "other")
+DEFAULT_LABELS = ["before", "after", "final", "run4", "run5"]
 
 
 def rescore(result: dict) -> dict:
@@ -45,37 +47,38 @@ def rescore(result: dict) -> dict:
         "over_budget": c["latency_s"] > RUN_DEADLINE_S,
         "fallbacks": c["fallbacks"],
         "tokens": c["tokens_in"] + c["tokens_out"],
+        "pages_read": c.get("pages_read"),
+        "needs_full_pages": c.get("needs_full_pages"),
         "baseline_conf": baseline.get("confidence") if baseline.get("ok") else None,
         "review": result.get("manual_review") or {},
         "old_quality": (len(c.get("quality_low", [])), len(c.get("quality_authoritative", [])), len(c.get("quality_other", []))),
     }
 
 
-def aggregate(rows: dict) -> dict:
-    vals = list(rows.values())
-    n = len(vals)
-    lat = [v["latency"] for v in vals]
+def aggregate(rows: list[dict]) -> dict:
+    n = len(rows)
+    lat = [v["latency"] for v in rows]
 
     def frac(key):
-        return f"{sum(1 for v in vals if v[key])}/{n}"
+        return f"{sum(1 for v in rows if v[key])}/{n}"
 
     return {
         "crash-free": frac("crash_free"),
         "schema valid": frac("schema"),
         "citations valid": frac("citations"),
         "confidence rules held": frac("rules"),
-        "insufficient evidence": f"{sum(1 for v in vals if v['sources'] == 0)}/{n}",
+        "insufficient evidence": f"{sum(1 for v in rows if v['sources'] == 0)}/{n}",
         f"over the {RUN_DEADLINE_S:.0f}s budget": frac("over_budget"),
-        "any fallback fired": f"{sum(1 for v in vals if v['fallbacks'])}/{n}",
+        "any fallback fired": f"{sum(1 for v in rows if v['fallbacks'])}/{n}",
         "latency median": f"{statistics.median(lat):.1f}s",
         "latency max": f"{max(lat):.1f}s",
         "latency total": f"{sum(lat):.0f}s",
         "confidence high / medium / low": " / ".join(
-            str(sum(1 for v in vals if v["confidence"] == lvl)) for lvl in ("high", "medium", "low")),
-        "sources total": str(sum(v["sources"] for v in vals)),
+            str(sum(1 for v in rows if v["confidence"] == lvl)) for lvl in ("high", "medium", "low")),
+        "sources total": str(sum(v["sources"] for v in rows)),
         "domains low / authoritative / docs+code / other": " / ".join(
-            str(sum(v["quality"][b] for v in vals)) for b in BUCKETS),
-        "tokens (in+out)": str(sum(v["tokens"] for v in vals)),
+            str(sum(v["quality"][b] for v in rows)) for b in BUCKETS),
+        "tokens (in+out)": str(sum(v["tokens"] for v in rows)),
     }
 
 
@@ -83,84 +86,110 @@ def cell(x) -> str:
     return str(x).replace("|", "\\|").replace("\n", " ")
 
 
-def build(before_path: Path, after_path: Path) -> str:
-    before = json.loads(before_path.read_text(encoding="utf-8"))
-    after = json.loads(after_path.read_text(encoding="utf-8"))
-    b_rows = {r["query"]["id"]: rescore(r) for r in before["results"]}
-    a_rows = {r["query"]["id"]: rescore(r) for r in after["results"]}
-    ids = [i for i in a_rows if i in b_rows]
-    b_agg, a_agg = aggregate({i: b_rows[i] for i in ids}), aggregate({i: a_rows[i] for i in ids})
-    old_auth = sum(b_rows[i]["old_quality"][1] for i in ids)
-    old_total = sum(sum(b_rows[i]["old_quality"]) for i in ids)
+def quality_str(r: dict) -> str:
+    return " / ".join(str(r["quality"][b]) for b in BUCKETS)
 
+
+def build(paths: list[Path], labels: list[str]) -> str:
+    runs = [{r["query"]["id"]: rescore(r) for r in json.loads(p.read_text(encoding="utf-8"))["results"]} for p in paths]
+    order = list(runs[-1])  # query order of the newest run
+    common = [i for i in order if all(i in run for run in runs)]
+    extra = [i for i in order if i not in common]
+    aggs = [aggregate([run[i] for i in common]) for run in runs]
+    first = runs[0]
+    old_auth = sum(first[i]["old_quality"][1] for i in common)
+    old_total = sum(sum(first[i]["old_quality"]) for i in common)
+    over_key = f"over the {RUN_DEADLINE_S:.0f}s budget"
+
+    head = "| metric | " + " | ".join(labels) + " |"
+    sep = "|---|" + "---|" * len(labels)
     lines = [
-        "# Before / after: Phase 5 evaluation-driven fixes",
+        "# Evaluation comparison: " + " / ".join(labels),
         "",
-        f"- **Before:** `{before_path.as_posix()}` (combined baseline, before any fixes)",
-        f"- **After:** `{after_path.as_posix()}` (after Phase 5 fixes)",
+        *[f"- **{label}:** `{p.as_posix()}`" for label, p in zip(labels, paths)],
         "",
-        "Both runs are re-scored with the same, current definitions: source-quality buckets from "
-        "`agent/quality.py` and \"over budget\" = total run time above "
-        f"{RUN_DEADLINE_S:.0f}s. The Phase 4 harness used a cruder classifier (no docs/code bucket) and "
-        f"reported `deadline_hit` for the gathering stage only: it showed {old_auth} authoritative out of "
-        f"{old_total} domains for the before run, and 0/{len(ids)} deadline hits although "
-        f"{b_agg[f'over the {RUN_DEADLINE_S:.0f}s budget'].split('/')[0]} run(s) took over {RUN_DEADLINE_S:.0f}s "
-        "in total.",
+        "All runs are re-scored with the same, current definitions: source-quality buckets from "
+        f"`agent/quality.py` and \"over budget\" = total run time above {RUN_DEADLINE_S:.0f}s. "
+        f"Aggregate metrics cover the {len(common)} queries present in every run. The Phase 4 harness used a "
+        f"cruder classifier (no docs/code bucket) and measured `deadline_hit` for the gathering stage only: it "
+        f"showed {old_auth} authoritative out of {old_total} domains for the {labels[0]} run, and 0 deadline "
+        f"hits although {aggs[0][over_key].split('/')[0]} run(s) took over {RUN_DEADLINE_S:.0f}s in total.",
         "",
         "## Per metric",
         "",
-        "| metric | before | after |",
-        "|---|---|---|",
+        head,
+        sep,
     ]
-    lines += [f"| {k} | {b_agg[k]} | {a_agg[k]} |" for k in b_agg]
+    lines += ["| " + k + " | " + " | ".join(a[k] for a in aggs) + " |" for k in aggs[0]]
 
     lines += [
         "",
         "## Per query (automatic)",
         "",
+        "Values are " + " → ".join(labels) + ".",
+        "",
         "| id | confidence | sources | low / auth / docs / other | latency | fallbacks | baseline conf. |",
         "|---|---|---|---|---|---|---|",
     ]
-    for i in ids:
-        b, a = b_rows[i], a_rows[i]
-
-        def arrow(key, fmt=str):
-            return f"{fmt(b[key])} → {fmt(a[key])}"
-
-        q = lambda r: " / ".join(str(r["quality"][x]) for x in BUCKETS)  # noqa: E731
-        fb = lambda r: ", ".join(r["fallbacks"]) or "none"  # noqa: E731
+    for i in common:
+        rs = [run[i] for run in runs]
         lines.append("| " + " | ".join(cell(x) for x in [
-            i, arrow("confidence"), arrow("sources"), f"{q(b)} → {q(a)}",
-            f"{b['latency']}s → {a['latency']}s", f"{fb(b)} → {fb(a)}",
-            f"{b['baseline_conf']} → {a['baseline_conf']}",
+            i,
+            " → ".join(str(r["confidence"]) for r in rs),
+            " → ".join(str(r["sources"]) for r in rs),
+            " → ".join(quality_str(r) for r in rs),
+            " → ".join(f"{r['latency']}s" for r in rs),
+            " → ".join(", ".join(r["fallbacks"]) or "none" for r in rs),
+            " → ".join(str(r["baseline_conf"]) for r in rs),
         ]) + " |")
+
+    if extra:
+        lines += [
+            "",
+            f"## Queries only in the {labels[-1]} run",
+            "",
+            "| id | confidence | sources | pages read | needs full pages | low / auth / docs / other | latency | fallbacks | baseline conf. |",
+            "|---|---|---|---|---|---|---|---|---|",
+        ]
+        for i in extra:
+            r = runs[-1][i]
+            lines.append("| " + " | ".join(cell(x) for x in [
+                i, r["confidence"], r["sources"], r["pages_read"], r["needs_full_pages"], quality_str(r),
+                f"{r['latency']}s", ", ".join(r["fallbacks"]) or "none", r["baseline_conf"],
+            ]) + " |")
 
     lines += [
         "",
         "## Per query (manual review)",
         "",
-        "| id | correct? before → after | well-supported? before → after | what broke (before) | what broke (after) |",
-        "|---|---|---|---|---|",
+        "| id | correct? (" + " → ".join(labels) + ") | well-supported? | "
+        + " | ".join(f"what broke ({label})" for label in labels) + " |",
+        "|---|---|---|" + "---|" * len(labels),
     ]
-    for i in ids:
-        br, ar = b_rows[i]["review"], a_rows[i]["review"]
+    for i in common + extra:
+        revs = [run[i]["review"] if i in run else {} for run in runs]
         lines.append("| " + " | ".join(cell(x) for x in [
             i,
-            f"{br.get('correct') or '?'} → {ar.get('correct') or '?'}",
-            f"{br.get('well_supported') or '?'} → {ar.get('well_supported') or '?'}",
-            br.get("what_broke") or "", ar.get("what_broke") or "",
+            " → ".join(r.get("correct") or "?" for r in revs),
+            " → ".join(r.get("well_supported") or "?" for r in revs),
+            *[r.get("what_broke") or "" for r in revs],
         ]) + " |")
     return "\n".join(lines) + "\n"
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Compare two eval result files")
-    parser.add_argument("before", type=Path)
-    parser.add_argument("after", type=Path)
+    parser = argparse.ArgumentParser(description="Compare eval result files")
+    parser.add_argument("runs", type=Path, nargs="+", help="Result .json files, oldest first")
+    parser.add_argument("--labels", help="Comma-separated column labels (default: before,after,final,...)")
     parser.add_argument("-o", "--output", type=Path, default=Path(__file__).with_name("results") / "comparison.md")
     parser.add_argument("--notes", type=Path, help="Hand-written Markdown appended after the generated tables")
     args = parser.parse_args(argv)
-    text = build(args.before, args.after)
+    if len(args.runs) < 2:
+        parser.error("give at least two result files")
+    labels = args.labels.split(",") if args.labels else DEFAULT_LABELS[: len(args.runs)]
+    if len(labels) != len(args.runs):
+        parser.error("--labels must have one label per result file")
+    text = build(args.runs, labels)
     if args.notes:
         text += "\n" + args.notes.read_text(encoding="utf-8")
     args.output.write_text(text, encoding="utf-8")
