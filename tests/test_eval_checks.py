@@ -59,6 +59,22 @@ def test_domain_quality_buckets():
     assert classify_domain("notfacebook.com") == "other"  # suffix match needs a dot boundary
 
 
+def test_deadline_hit_measures_total_run_time():
+    slow = TRACE.model_copy(update={"total_ms": 101_200, "deadline_hit": False})
+    c = check_response(response(), slow)
+    assert c.deadline_hit and not c.gathering_cut  # the Phase 4 harness reported False here
+    assert not check_response(response(), TRACE).deadline_hit
+
+
+def test_docs_and_github_have_their_own_bucket():
+    r = response().model_copy(update={"sources": [
+        src(1, "https://github.com/qdrant/qdrant"), src(2, "https://milvus.io/docs/overview.md"),
+        src(3, "https://www.youtube.com/watch?v=1"),
+    ]})
+    c = check_response(r, TRACE)
+    assert c.quality_docs_code == ["github.com", "milvus.io"] and c.quality_low == ["youtube.com"]
+
+
 def test_queries_file_is_valid_and_has_required_cases():
     queries = load_queries()
     assert len(queries) == 8 and len({q.id for q in queries}) == 8

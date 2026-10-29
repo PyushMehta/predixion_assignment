@@ -65,15 +65,19 @@ class PlanOutcome:
     used_fallback_plan: bool
 
 
-def make_plan(question: str, *, providers: list[Provider] | None = None) -> Plan:
+def make_plan(question: str, *, providers: list[Provider] | None = None, deadline: float | None = None) -> Plan:
     """Return a plan for `question`. Never raises; falls back to a one-step plan."""
-    return make_plan_detailed(question, providers=providers).plan
+    return make_plan_detailed(question, providers=providers, deadline=deadline).plan
 
 
-def make_plan_detailed(question: str, *, providers: list[Provider] | None = None) -> PlanOutcome:
-    """Like make_plan, but also reports how the plan was produced."""
+def make_plan_detailed(
+    question: str, *, providers: list[Provider] | None = None, deadline: float | None = None
+) -> PlanOutcome:
+    """Like make_plan, but also reports how the plan was produced. `deadline` bounds the LLM call."""
     question = question.strip()
-    result = complete_structured(SYSTEM_PROMPT, _wrap_question(question), _CheckedPlan, providers=providers)
+    result = complete_structured(
+        SYSTEM_PROMPT, _wrap_question(question), _CheckedPlan, providers=providers, deadline=deadline,
+    )
     if not result.ok:
         log.warning("planner: LLM failed, using fallback plan: %s", result.error)
         return PlanOutcome(plan=fallback_plan(question), llm=result, used_fallback_plan=True)

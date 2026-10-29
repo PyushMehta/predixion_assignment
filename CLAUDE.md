@@ -29,19 +29,31 @@ confidence, assumptions, limitations and next steps.
 ```
 agent/
   schemas.py       # user-written, LLM output models only — DO NOT change without asking the user
-                   # (one approved change: key_findings may be empty when confidence is low)
-  llm.py           # LLM wrapper: structured output, validation + 1 repair, retries, fallback provider
+                   # approved changes: key_findings may be empty when confidence is low (Phase 3);
+                   # short_answer max 600 -> 1000 chars (Phase 5)
+  llm.py           # LLM wrapper: structured output, validation + 1 repair, retries, fallback provider;
+                   # optional `deadline` bounds timeouts/retries/repair/failover; failover only on
+                   # availability errors (timeout/429/5xx/connection); result has error_kind
   planner.py       # make_plan(question) -> Plan; deterministic one-step plan if the LLM fails
   tools/results.py   # tool result models: SearchResult (+SearchItem), PageResult
   tools/net.py       # shared send_with_retry: 10s timeout, retries on timeout/429/5xx, optional deadline
   tools/injection.py # shared prompt-injection phrase check (flags, never removes)
   tools/search.py    # web_search: Tavily REST API via httpx, 2 retries, flags suspicious snippets
   tools/scraper.py   # scrape_page: httpx + trafilatura (BS fallback), 1 retry, 15s per-call deadline
-  filter.py        # deterministic: dedup, injection, relevance>=0.5, text, 2/domain, max 8 -> S1..Sn
-  synthesizer.py   # model writes the answer only; we attach sources; fallback response on failure
-  orchestrator.py  # run(question) -> RunResult; budgets: 2 LLM calls, 4 scrapes, 90s; trace -> runs/
+  filter.py        # deterministic: dedup, injection, relevance>=0.5, text, 2/domain, max 8 -> S1..Sn;
+                   # ranked by relevance + source-quality adjustment (not a hard block)
+  passages.py      # BM25 chunk selection: keep the question-relevant parts of a page (no LLM)
+  quality.py       # source-quality categories low/authoritative/docs_code/other, shared with eval
+  textutil.py      # trim_at_sentence
+  synthesizer.py   # model writes the answer only; we attach sources; fallback response on failure;
+                   # code trims short_answer <=1500 to 1000, caps future questions at low,
+                   # splits next_steps to one action each
+  orchestrator.py  # run(question) -> RunResult; budgets: 2 LLM calls, 4 scrapes, 90s for the
+                   # WHOLE run (planner + gathering by 60s, synthesis gets the rest); trace -> runs/
 eval/queries.yaml     # 8 eval queries with id, category, EXPECTED behaviour (written before running)
-eval/run_eval.py      # harness: real agent per query, automatic checks, --baseline (1 LLM call, no tools)
+eval/run_eval.py      # harness: real agent per query, automatic checks, --baseline (1 LLM call, no tools),
+                      # --only, --merge; deadline_hit = total run time > 90s
+eval/compare.py       # before/after report -> eval/results/comparison.md (re-scores both runs alike)
 eval/results/         # <timestamp>.json + .md per eval run (manual-review columns left blank)
 scripts/try_tools.py  # manual real-network smoke test of the tools
 scripts/try_planner.py # manual real-LLM smoke test of the planner
@@ -55,8 +67,10 @@ NOTES.md              # design decisions + known limitations, per phase
 - Work one phase at a time. Do not build later phases until the user asks.
 - Phase order: setup (done) → Phase 1 tools (done) (`results.py`, search, scraper, with tests; no LLM
   dependency) → Phase 2 LLM wrapper + planner (done) → Phase 3 filter, synthesizer,
-  orchestrator, CLI (done) → Phase 4 eval harness + baseline run (done) → later phases as
-  specified by the user.
+  orchestrator, CLI (done) → Phase 4 eval harness + baseline run (done) → Phase 5
+  evaluation-driven fixes + after run + comparison (done) → later phases as specified by the user.
+- Reliability rule learned in Phase 5: every retry path (LLM retries, repair, provider failover)
+  must respect the overall run deadline.
 - Evaluation: never write judgements of answer quality yourself; the user fills in the manual
   review columns. Don't fix retrieval issues found by eval until asked: the user wants
   before/after numbers, so keep the baseline results file unchanged. Follow the user's written spec for each phase.

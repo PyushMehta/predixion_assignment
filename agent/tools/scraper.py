@@ -24,7 +24,7 @@ USER_AGENT = (
 )
 HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
 MAX_DOWNLOAD_BYTES = 2_000_000
-MAX_TEXT_CHARS = 4000
+MAX_TEXT_CHARS = 20_000  # raw page text kept; agent/passages.py later picks the relevant parts
 SCRAPE_RETRIES = 1  # fewer than search: one slow page shouldn't stall the run
 SCRAPE_DEADLINE_S = 15.0  # overall cap per call: attempts + backoff + download
 

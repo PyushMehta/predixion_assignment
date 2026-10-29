@@ -3,8 +3,13 @@
 A single-agent planner-executor with fixed budgets:
 - at most MAX_LLM_CALLS logical LLM calls per run (planner + synthesis),
 - at most MAX_SCRAPES pages, scraped in parallel,
-- an overall run deadline. Gathering stops early enough to leave time for
-  synthesis; when it stops early, we answer from what we have and say so.
+- an overall run deadline covering the WHOLE run: planning and gathering must
+  finish by the gathering deadline, and synthesis gets the rest. LLM calls are
+  given the time left (llm.py shrinks timeouts and skips retries/failover that
+  don't fit); if synthesis can't fit, a low-confidence fallback answer is used.
+
+Scraped pages are reduced to their most question-relevant passages
+(agent/passages.py) before filtering and synthesis.
 
 Only URLs that came from search results or from the user's question are
 scraped. The planner may suggest a URL, but an invented one is never fetched.
@@ -26,9 +31,13 @@ from agent.filter import (
     domain_of, filter_sources, normalise_url,
 )
 from agent.llm import LLMResult, Provider
+from agent.passages import select_passages
 from agent.planner import make_plan_detailed
+from agent.quality import quality_adjustment
 from agent.schemas import Confidence, Plan, ResearchResponse
-from agent.synthesizer import fallback_response, insufficient_evidence_response, synthesize_detailed
+from agent.synthesizer import (
+    MAX_EVIDENCE_CHARS, fallback_response, insufficient_evidence_response, synthesize_detailed,
+)
 from agent.tools import net
 from agent.tools.results import PageResult, SearchItem, SearchResult
 from agent.tools.scraper import scrape_page
@@ -64,6 +73,7 @@ class LLMCall(BaseModel):
     error: str | None = None
     provider: str = ""
     model: str = ""
+    error_kind: str | None = None
     fallback_provider_used: bool = False
     latency_ms: int = 0
     input_tokens: int = 0
@@ -112,7 +122,7 @@ def run(
     trace = Trace(run_id=f"{now:%Y%m%d-%H%M%S}-{now.microsecond // 1000:03d}", question=question, started_at=now.isoformat(timespec="seconds"))
 
     try:
-        response = _run_steps(question, trace, providers, search_fn, scrape_fn, gather_deadline)
+        response = _run_steps(question, trace, providers, search_fn, scrape_fn, gather_deadline, deadline)
     except Exception as exc:  # last line of defence: a bug must not lose the run
         log.exception("orchestrator: unexpected error")
         trace.fallbacks.append("unexpected_error")
@@ -129,9 +139,9 @@ def run(
     return result
 
 
-def _run_steps(question, trace, providers, search_fn, scrape_fn, gather_deadline) -> ResearchResponse:
-    # 1. Plan (LLM call 1)
-    planned = make_plan_detailed(question, providers=providers)
+def _run_steps(question, trace, providers, search_fn, scrape_fn, gather_deadline, deadline) -> ResearchResponse:
+    # 1. Plan (LLM call 1), bounded by the gathering deadline
+    planned = make_plan_detailed(question, providers=providers, deadline=gather_deadline)
     plan = trace.plan = planned.plan
     _record_llm(trace, "plan", planned.llm)
     if planned.used_fallback_plan:
@@ -155,11 +165,15 @@ def _run_steps(question, trace, providers, search_fn, scrape_fn, gather_deadline
     pages = _run_parallel(scrape_fn, targets, gather_deadline, "scrape_page", trace)
     log.info("step scrape: targets=%d ok=%d", len(targets), sum(p.ok for p in pages.values()))
 
+    # 3b. Keep only the most relevant passages of each page
+    relevance_query = " ".join([question, *plan.sub_questions])
+    pages = {url: _select(page, relevance_query, trace) for url, page in pages.items()}
+
     # 4. Filter
-    filtered = filter_sources(_candidates(items, pages, user_urls))
+    filtered = filter_sources(_candidates(items, pages, user_urls), question=question)
     trace.filter_kept = [f"{s.source.id} {s.source.url}" for s in filtered.sources]
     trace.filter_dropped = filtered.dropped
-    trace.filter_notes = filtered.notes
+    trace.filter_notes.extend(filtered.notes)
     log.info("step filter: kept=%d dropped=%d", len(filtered.sources), len(filtered.dropped))
 
     # 5. Guardrail: nothing usable -> answer without calling the LLM
@@ -174,10 +188,13 @@ def _run_steps(question, trace, providers, search_fn, scrape_fn, gather_deadline
         trace.fallbacks.append("synthesis_fallback_response")
         response = fallback_response(question, filtered.sources, "LLM call budget exhausted")
     else:
-        synthesis = synthesize_detailed(question, filtered.sources, providers=providers)
+        synthesis = synthesize_detailed(question, filtered.sources, providers=providers, deadline=deadline)
         _record_llm(trace, "synthesis", synthesis.llm)
+        trace.guardrails.extend(f"synthesizer: {a}" for a in synthesis.adjustments)
         if synthesis.used_fallback_response:
             trace.fallbacks.append("synthesis_fallback_response")
+            if synthesis.llm is not None and synthesis.llm.error_kind == "deadline":
+                trace.deadline_hit = True
         response = synthesis.response
     log.info("step synthesize: confidence=%s findings=%d", response.confidence.value, len(response.key_findings))
 
@@ -215,8 +232,8 @@ def _scrape_targets(plan: Plan, items: list[SearchItem], user_urls: list[str], t
             trace.skipped.append(DropDecision(
                 url=step.query, reason="planner URL not in search results or the question: not scraped",
             ))
-    # Best search results that would survive the filter anyway.
-    for item in sorted(items, key=lambda i: i.score, reverse=True):
+    # Best search results that would survive the filter anyway, quality-adjusted.
+    for item in sorted(items, key=lambda i: i.score + quality_adjustment(i.url, plan.question), reverse=True):
         if len(targets) >= MAX_SCRAPES:
             break
         if item.score < MIN_RELEVANCE or item.suspicious or per_domain.get(domain_of(item.url), 0) >= MAX_PER_DOMAIN:
@@ -334,12 +351,21 @@ def _record_llm(trace: Trace, stage: str, llm: LLMResult | None) -> None:
     if llm is None:
         return
     trace.llm_calls.append(LLMCall(
-        stage=stage, ok=llm.ok, error=llm.error, provider=llm.provider, model=llm.model,
+        stage=stage, ok=llm.ok, error=llm.error, error_kind=llm.error_kind, provider=llm.provider, model=llm.model,
         fallback_provider_used=llm.fallback_used, latency_ms=llm.latency_ms,
         input_tokens=llm.input_tokens, output_tokens=llm.output_tokens,
     ))
     if llm.fallback_used:
         trace.fallbacks.append(f"{stage}_fallback_provider")
+
+
+def _select(page: PageResult, query: str, trace: Trace) -> PageResult:
+    """Replace a page's text with its most query-relevant passages."""
+    if not page.ok or len(page.text) <= MAX_EVIDENCE_CHARS:
+        return page
+    selected = select_passages(page.text, query, MAX_EVIDENCE_CHARS)
+    trace.filter_notes.append(f"{page.url}: kept {len(selected)} of {len(page.text)} chars (relevant passages)")
+    return page.model_copy(update={"text": selected})
 
 
 def _urls_in(text: str) -> list[str]:

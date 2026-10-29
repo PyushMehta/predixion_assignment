@@ -4,8 +4,10 @@ No LLM. Every candidate that is dropped is recorded with a reason, so the run
 trace shows exactly why a source did or didn't reach the synthesizer.
 
 Order of rules: invalid URL -> duplicate -> suspicious -> low relevance ->
-too little text -> per-domain cap -> overall cap. Survivors are ranked by
-relevance and numbered S1..Sn.
+too little text -> per-domain cap -> overall cap. Candidates are ranked by
+search relevance plus a source-quality adjustment (agent/quality.py), so
+social media and forums sink and authoritative sources rise, but nothing is
+blocked for its domain alone. Survivors are numbered S1..Sn in that order.
 """
 
 import logging
@@ -13,6 +15,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ValidationError
 
+from agent.quality import classify_url, quality_adjustment
 from agent.schemas import Source
 from agent.tools.results import PageResult
 
@@ -44,6 +47,8 @@ class FilteredSource(BaseModel):
     source: Source
     text: str  # evidence handed to the synthesizer: page text, or the snippet
     from_page: bool  # False = snippet only (page not scraped, failed or too short)
+    quality: str = "other"  # agent/quality.py category
+    rank_score: float = 0.0  # relevance + quality adjustment, used for ordering
 
 
 class DropDecision(BaseModel):
@@ -69,14 +74,18 @@ def domain_of(url: str) -> str:
     return host.removeprefix("www.")
 
 
-def filter_sources(candidates: list[Candidate]) -> FilterResult:
+def rank_score(c: Candidate, question: str = "") -> float:
+    return c.score + quality_adjustment(c.url, question)
+
+
+def filter_sources(candidates: list[Candidate], question: str = "") -> FilterResult:
     result = FilterResult()
 
     def drop(candidate: Candidate, reason: str) -> None:
         result.dropped.append(DropDecision(url=candidate.url, reason=reason))
 
     # Best first, so duplicate and cap rules keep the strongest candidate.
-    ranked = sorted(candidates, key=lambda c: c.score, reverse=True)
+    ranked = sorted(candidates, key=lambda c: rank_score(c, question), reverse=True)
 
     kept: list[FilteredSource] = []
     seen_urls: set[str] = set()
@@ -126,7 +135,10 @@ def filter_sources(candidates: list[Candidate]) -> FilterResult:
             drop(c, f"invalid source data: {exc.errors()[0]['msg']}")
             continue
         per_domain[domain] = per_domain.get(domain, 0) + 1
-        kept.append(FilteredSource(source=source, text=text, from_page=from_page))
+        kept.append(FilteredSource(
+            source=source, text=text, from_page=from_page,
+            quality=classify_url(c.url), rank_score=round(rank_score(c, question), 3),
+        ))
 
     result.sources = kept
     log.info(

@@ -27,10 +27,11 @@ import yaml  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 from pydantic import BaseModel, Field, ValidationError  # noqa: E402
 
-from agent.filter import domain_of  # noqa: E402
 from agent.llm import complete_structured  # noqa: E402
-from agent.orchestrator import Trace, run  # noqa: E402
+from agent.orchestrator import RUN_DEADLINE_S, Trace, run  # noqa: E402
+from agent.quality import classify_url, domain_of  # noqa: E402
 from agent.schemas import Confidence, ResearchResponse  # noqa: E402
+from agent.textutil import trim_at_sentence  # noqa: E402
 
 log = logging.getLogger("eval")
 
@@ -38,21 +39,12 @@ QUERIES_FILE = Path(__file__).with_name("queries.yaml")
 RESULTS_DIR = Path(__file__).with_name("results")
 DEFAULT_PAUSE_S = 10.0  # between queries, to stay inside free-tier rate limits
 
-# Rough source-quality buckets. Deliberately simple and visible: a domain is
-# "low" (social media, video, forums), "authoritative" (government, academic,
-# known research and data organisations) or "other" (news, vendors, blogs...).
-LOW_QUALITY_DOMAINS = {
-    "facebook.com", "instagram.com", "tiktok.com", "twitter.com", "x.com", "threads.net",
-    "linkedin.com", "pinterest.com", "youtube.com", "youtu.be", "vimeo.com",
-    "reddit.com", "quora.com", "stackexchange.com", "answers.com",
-}
-AUTHORITATIVE_DOMAINS = {
-    "ourworldindata.org", "who.int", "un.org", "oecd.org", "worldbank.org", "imf.org", "iea.org",
-    "irena.org", "ipcc.ch", "nature.com", "science.org", "sciencedirect.com", "springer.com",
-    "wiley.com", "arxiv.org", "acm.org", "ieee.org", "nber.org", "pewresearch.org", "rand.org",
-    "brookings.edu", "nasscom.in", "rbi.org.in",
-}
-AUTHORITATIVE_SUFFIXES = (".gov", ".edu", ".int", ".mil", ".gov.uk", ".ac.uk", ".gov.in", ".nic.in", ".ac.in", ".edu.au")
+# Source-quality buckets come from agent/quality.py, the same definitions the
+# agent's filter uses: "low" (social media, video, forums), "authoritative"
+# (government, academic, research publishers, data organisations), "docs_code"
+# (official docs, GitHub and similar) and "other" (news, vendors, blogs...).
+QUALITY_BUCKETS = ("low", "authoritative", "docs_code", "other")
+BASELINE_ANSWER_MAX = 1500
 
 BASELINE_SYSTEM = """\
 Answer the user's question from your own knowledge. You have no tools and no \
@@ -71,8 +63,8 @@ class EvalQuery(BaseModel):
 
 
 class BaselineAnswer(BaseModel):
-    """What the no-tools baseline returns."""
-    answer: str = Field(max_length=1500)
+    """What the no-tools baseline returns. Small overruns are trimmed in code, as for the agent."""
+    answer: str = Field(max_length=int(BASELINE_ANSWER_MAX * 1.5))
     confidence: Confidence
     confidence_reason: str
 
@@ -103,13 +95,15 @@ class Checks(BaseModel):
     domains: list[str] = []
     quality_low: list[str] = []
     quality_authoritative: list[str] = []
+    quality_docs_code: list[str] = []
     quality_other: list[str] = []
     latency_s: float = 0.0
     llm_calls: list[str] = []  # "plan: api.groq.com/openai/gpt-oss-120b"
     tokens_in: int = 0
     tokens_out: int = 0
     fallbacks: list[str] = []
-    deadline_hit: bool = False
+    deadline_hit: bool = False  # total run time over the run budget (RUN_DEADLINE_S)
+    gathering_cut: bool = False  # the orchestrator stopped gathering early
 
 
 class QueryResult(BaseModel):
@@ -124,14 +118,8 @@ class QueryResult(BaseModel):
 # ---------- checks (pure functions) ----------
 
 def classify_domain(domain: str) -> str:
-    """Return "low", "authoritative" or "other"."""
-    def matches(names):
-        return any(domain == d or domain.endswith("." + d) for d in names)
-    if matches(LOW_QUALITY_DOMAINS):
-        return "low"
-    if matches(AUTHORITATIVE_DOMAINS) or domain.endswith(AUTHORITATIVE_SUFFIXES):
-        return "authoritative"
-    return "other"
+    """Quality bucket for a bare domain (kept for old callers; prefer classify_url)."""
+    return classify_url(f"https://{domain}/")
 
 
 def check_response(response: ResearchResponse, trace: Trace) -> Checks:
@@ -161,15 +149,20 @@ def check_response(response: ResearchResponse, trace: Trace) -> Checks:
     checks.confidence_rules_ok = not violations
 
     checks.domains = list(dict.fromkeys(domain_of(str(s.url)) for s in response.sources))
-    for domain in checks.domains:
-        getattr(checks, f"quality_{classify_domain(domain)}").append(domain)
+    seen = set()
+    for s in response.sources:
+        domain = domain_of(str(s.url))
+        if domain not in seen:
+            seen.add(domain)
+            getattr(checks, f"quality_{classify_url(str(s.url))}").append(domain)
 
     checks.latency_s = round(trace.total_ms / 1000, 1)
     checks.llm_calls = [f"{c.stage}: {c.provider}/{c.model}" + ("" if c.ok else " (failed)") for c in trace.llm_calls]
     checks.tokens_in = sum(c.input_tokens for c in trace.llm_calls)
     checks.tokens_out = sum(c.output_tokens for c in trace.llm_calls)
     checks.fallbacks = trace.fallbacks
-    checks.deadline_hit = trace.deadline_hit
+    checks.deadline_hit = trace.total_ms > RUN_DEADLINE_S * 1000
+    checks.gathering_cut = trace.deadline_hit
     return checks
 
 
@@ -202,7 +195,7 @@ def run_baseline(query: EvalQuery) -> BaselineResult:
         latency_s=round(time.monotonic() - start, 1),
     )
     if result.ok:
-        out.answer = result.data.answer
+        out.answer = trim_at_sentence(result.data.answer, BASELINE_ANSWER_MAX)
         out.confidence = result.data.confidence.value
         out.confidence_reason = result.data.confidence_reason
     return out
@@ -303,11 +296,7 @@ def summarise(results: list[QueryResult]) -> dict:
             "max": max(latencies, default=None),
         },
         "sources_total": sum(c.n_sources for c in ok),
-        "domains_by_quality": {
-            "low": sum(len(c.quality_low) for c in ok),
-            "authoritative": sum(len(c.quality_authoritative) for c in ok),
-            "other": sum(len(c.quality_other) for c in ok),
-        },
+        "domains_by_quality": {b: sum(len(getattr(c, f"quality_{b}")) for c in ok) for b in QUALITY_BUCKETS},
         "tokens": {"in": sum(c.tokens_in for c in ok), "out": sum(c.tokens_out for c in ok)},
     }
 
@@ -348,14 +337,14 @@ def to_markdown(results: list[QueryResult], meta: dict) -> str:
         f"| confidence (high/medium/low) | {s['confidence']['high']}/{s['confidence']['medium']}/{s['confidence']['low']} |",
         f"| latency median / max | {s['latency_s']['median']}s / {s['latency_s']['max']}s |",
         f"| sources total | {s['sources_total']} |",
-        f"| domains low / authoritative / other | {s['domains_by_quality']['low']} / "
-        f"{s['domains_by_quality']['authoritative']} / {s['domains_by_quality']['other']} |",
+        "| domains low / authoritative / docs+code / other | "
+        + " / ".join(str(s["domains_by_quality"][b]) for b in QUALITY_BUCKETS) + " |",
         f"| tokens in / out | {s['tokens']['in']} / {s['tokens']['out']} |",
         "",
         "## Per query",
         "",
         "| id | category | crash-free | schema | citations | conf. rules | confidence | sources | "
-        "low / auth / other | latency | fallbacks | baseline conf. | correct? | well-supported? | what broke? |",
+        "low / auth / docs / other | latency | fallbacks | baseline conf. | correct? | well-supported? | what broke? |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in results:
@@ -364,7 +353,7 @@ def to_markdown(results: list[QueryResult], meta: dict) -> str:
         lines.append("| " + " | ".join(_cell(x) for x in [
             r.query.id, r.query.category, _yn(not c.crashed), _yn(c.schema_valid), _yn(c.citations_valid),
             _yn(c.confidence_rules_ok), c.confidence or "-", c.n_sources,
-            f"{len(c.quality_low)} / {len(c.quality_authoritative)} / {len(c.quality_other)}",
+            " / ".join(str(len(getattr(c, f"quality_{b}"))) for b in QUALITY_BUCKETS),
             f"{c.latency_s}s", ", ".join(c.fallbacks) or "none", base, "", "", "",
         ]) + " |")
 
@@ -388,7 +377,7 @@ def to_markdown(results: list[QueryResult], meta: dict) -> str:
                 lines.append("")
             if resp["sources"]:
                 lines.append("*Sources:*")
-                lines += [f"- [{src['id']}] ({classify_domain(domain_of(src['url']))}) {src['title']}: {src['url']}"
+                lines += [f"- [{src['id']}] ({classify_url(src['url'])}) {src['title']}: {src['url']}"
                           for src in resp["sources"]]
                 lines.append("")
             if resp["limitations"]:
@@ -399,7 +388,8 @@ def to_markdown(results: list[QueryResult], meta: dict) -> str:
             lines += [
                 f"*Checks:* LLM calls: {'; '.join(c.llm_calls) or 'none'} | tokens {c.tokens_in}/{c.tokens_out} | "
                 f"latency {c.latency_s}s | fallbacks: {', '.join(c.fallbacks) or 'none'} | "
-                f"deadline hit: {c.deadline_hit} | problems: {', '.join(problems) or 'none'}",
+                f"over {RUN_DEADLINE_S:.0f}s budget: {c.deadline_hit} | gathering cut: {c.gathering_cut} | "
+                f"problems: {', '.join(problems) or 'none'}",
                 "",
                 f"*Trace:* `{r.trace_path}`",
                 "",

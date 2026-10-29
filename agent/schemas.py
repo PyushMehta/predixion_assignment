@@ -51,7 +51,7 @@ class Confidence(str, Enum):
 
 class ResearchResponse(BaseModel):
     question: str
-    short_answer: str = Field(max_length=600)
+    short_answer: str = Field(max_length=1000)
     key_findings: list[Finding] = Field(
         default=[], description="May be empty only for a low-confidence answer (e.g. insufficient evidence)"
     )

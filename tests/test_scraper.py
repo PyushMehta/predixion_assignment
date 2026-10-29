@@ -129,7 +129,7 @@ def test_invalid_url_is_clean_error(mock_client):
 
 
 def test_long_text_is_truncated(mock_client):
-    client, _ = mock_client(html_response(f"<article><p>{ARTICLE * 20}</p></article>"))
+    client, _ = mock_client(html_response(f"<article><p>{ARTICLE * 40}</p></article>"))
     result = scrape_page("https://example.com/long", client=client)
     assert result.ok and result.truncated
     assert len(result.text) <= MAX_TEXT_CHARS + 2  # plus the " …" marker

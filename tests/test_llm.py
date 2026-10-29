@@ -142,7 +142,7 @@ def test_both_providers_fail_is_clean_error():
     fallback = FakeClient(status_error(400, body={"error": "nope"}))
     result = ask(provider(primary), provider(fallback, name="fallback.test"))
     assert not result.ok and result.data is None
-    assert result.error.startswith("all LLM providers failed")
+    assert result.error.startswith("LLM call failed")
     assert "primary.test/fake-model: timed out" in result.error
     assert "fallback.test/fake-model: HTTP 400" in result.error
 
