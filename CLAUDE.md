@@ -10,7 +10,17 @@ confidence, assumptions, limitations and next steps.
 
 ## Stack
 - Python 3.11+, Pydantic v2
-- LLM: OpenAI API, behind one small wrapper (`agent/llm.py`) so it can be swapped
+- LLM: OpenAI **SDK** pointed at any OpenAI-compatible endpoint, behind one small wrapper
+  (`agent/llm.py`). Provider is chosen purely by env vars `LLM_BASE_URL`, `LLM_API_KEY`,
+  `LLM_MODEL`; no provider-specific code. Default: Google Gemini free tier
+  (`https://generativelanguage.googleapis.com/v1beta/openai/`, model `gemini-3.8-flash`).
+  Structured output via `client.chat.completions.parse(response_format=<PydanticModel>)`,
+  which Gemini's OpenAI-compatible endpoint supports (beta).
+  Free tier is ~10–15 requests/minute: llm.py MUST retry HTTP 429 with backoff long enough
+  to clear a per-minute window (honour any server-given retry delay, cap the total wait),
+  and fail fast with a clear error when the daily quota is exhausted. Also retry 503
+  ("model overloaded", seen live on gemini-3.8-flash). Use a ~60s per-call timeout: Flash-Lite
+  took ~29s for a short structured answer. See NOTES.md "Observed in a live check".
 - Search: Tavily API
 - Scraping: httpx + BeautifulSoup / trafilatura
 - Interface: argparse CLI (`main.py`); maybe Streamlit later

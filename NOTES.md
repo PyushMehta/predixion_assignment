@@ -5,6 +5,65 @@ Source material for the README and the evaluation write-up.
 
 ---
 
+## LLM provider: Gemini free tier via the OpenAI SDK
+
+### Design decisions
+
+**Provider set by config, not code.** `agent/llm.py` will use the OpenAI Python
+SDK with `base_url`, `api_key` and `model` read from `LLM_BASE_URL`,
+`LLM_API_KEY` and `LLM_MODEL`. Any OpenAI-compatible endpoint works (Gemini,
+OpenAI, a local server), so switching provider is an `.env` edit. Originally
+planned for OpenAI; switched to Gemini because the free tier needs no credits.
+
+**Default: `gemini-3.8-flash` on Gemini's OpenAI-compatible endpoint**
+(`https://generativelanguage.googleapis.com/v1beta/openai/`). Checked against
+Google's docs on 2026-10-29: it's the latest stable Flash model, has a free
+tier, and is the model used in the OpenAI-compatibility examples.
+`gemini-3.5-flash-lite` is the faster, cheaper fallback if quality allows.
+
+**Structured output** uses `client.chat.completions.parse` with a Pydantic
+model as `response_format`. Gemini's docs show exactly this on the
+OpenAI-compatible endpoint. Our own validation stays in place regardless
+(e.g. the citation check in `ResearchResponse`), since parsing that succeeds
+can still fail our rules.
+
+**Rate limits (429).** The free tier allows roughly 10–15 requests per minute.
+The OpenAI SDK's built-in retries back off for only a few seconds, too short to
+clear a per-minute window. Plan for `llm.py`: retry 429 with backoff measured
+in tens of seconds, honour a server-given retry delay when present, cap the
+total wait, and fail fast when the error says the *daily* quota is used up
+(retrying that is pointless).
+
+**Observed in a live check (2026-10-29), with a valid key:**
+- `models.list` answered in under 1s, so key and endpoint are fine.
+- `gemini-3.8-flash` returned **HTTP 503 UNAVAILABLE**, "This model is currently
+  experiencing high demand… usually temporary", or hung for 90s with no answer.
+- `gemini-3.5-flash-lite` returned a correctly parsed Pydantic object via
+  `chat.completions.parse`, but took **~29s** for a one-sentence answer.
+
+What this means for `llm.py`:
+- Treat 503 like 429: temporary, so retry with backoff.
+- The per-call timeout must be generous (~60s), not 10s like the tools.
+- A fallback model (e.g. Flash-Lite when Flash is overloaded) is worth having,
+  set by an optional env var so it stays config-only.
+- Latency dominates the run time: keep the number of LLM calls per question
+  small and fixed (plan → synthesize, maybe one repair retry).
+
+### Known limitations
+
+- **Free-tier data use.** On Gemini's free tier, prompts and responses may be
+  used by Google to improve its products. Acceptable here (public web research,
+  no personal data), but a real deployment would use a paid tier.
+- **Compatibility layer is beta.** Google labels OpenAI-library support as beta;
+  some OpenAI parameters may be ignored or behave differently.
+- **Rate limits are not published per model.** The docs point to AI Studio for
+  actual limits, which vary by account and can change. Each research run must
+  fit in a small number of LLM calls.
+- **Throughput.** At ~10 requests per minute, the evaluation suite must run
+  slowly or in small batches.
+
+---
+
 ## Phase 1: Tools (web search + page scraping)
 
 ### Design decisions
