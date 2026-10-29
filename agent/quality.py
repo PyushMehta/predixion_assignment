@@ -72,6 +72,54 @@ def classify_url(url: str) -> str:
     return "other"
 
 
+_TWO_PART_SUFFIXES = {
+    "co.uk", "org.uk", "ac.uk", "gov.uk", "co.in", "org.in", "ac.in", "gov.in", "com.au", "org.au",
+    "edu.au", "gov.au", "co.jp", "com.br", "co.nz", "com.sg", "co.za",
+}
+_OWNER_HOSTS = ("github.com", "gitlab.com", "huggingface.co")
+
+
+def site_name(url: str) -> str:
+    """The organisation a URL belongs to, as one lower-case word.
+
+    The registrable domain's name ("blog.zilliz.com" -> "zilliz"), or the
+    repository owner on code hosts ("github.com/qdrant/qdrant" -> "qdrant").
+    """
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    if host in _OWNER_HOSTS:
+        owner = parts.path.strip("/").split("/")[0]
+        if owner:
+            return owner.lower().replace("-", "")
+    if host.endswith(".readthedocs.io"):
+        return host.split(".")[0].replace("-", "")
+    labels = host.split(".")
+    if len(labels) >= 3 and ".".join(labels[-2:]) in _TWO_PART_SUFFIXES:
+        return labels[-3].replace("-", "")
+    return (labels[-2] if len(labels) >= 2 else host).replace("-", "")
+
+
+def named_entities(text: str) -> set[str]:
+    """Proper names in `text`, lower-cased: words written with capitals that never appear in lower case.
+
+    "Milvus", "greytHR" and "Zilliz" qualify; "Wind" does not if "wind" also
+    appears, which keeps ordinary words from matching sites like medium.com.
+    """
+    words = re.findall(r"[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9]", text)
+    lowercase = {w for w in words if w.islower()}
+    return {w.lower().replace("-", "") for w in words if not w.islower() and w.lower() not in lowercase and len(w) >= 3}
+
+
+def is_vendor_source(url: str, entities: set[str]) -> bool:
+    """True if the source is the site of something the question or answer names (its vendor).
+
+    Authoritative sources (government, academic, research publishers) never count as vendors.
+    """
+    if classify_url(url) == "authoritative":
+        return False
+    return site_name(url) in entities
+
+
 def is_technical(question: str) -> bool:
     words = set(re.findall(r"[a-z][a-z0-9-]*", question.lower()))
     return bool(words & TECHNICAL_TERMS)

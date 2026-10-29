@@ -33,7 +33,7 @@ from agent.filter import (
 from agent.llm import LLMResult, Provider
 from agent.passages import select_passages
 from agent.planner import make_plan_detailed
-from agent.quality import quality_adjustment
+from agent.quality import is_vendor_source, named_entities, quality_adjustment, site_name
 from agent.schemas import Confidence, Plan, ResearchResponse
 from agent.synthesizer import (
     MAX_EVIDENCE_CHARS, fallback_response, insufficient_evidence_response, synthesize_detailed,
@@ -51,6 +51,7 @@ MAX_WORKERS = 4
 SEARCH_RESULTS_PER_QUERY = 5
 RUN_DEADLINE_S = 90.0
 SYNTHESIS_RESERVE_S = 30.0  # gathering must stop this long before the deadline
+MIN_INDEPENDENT_FULL_PAGES = 3  # "high" confidence needs this many cited, full-page, non-vendor sites
 URL_PATTERN = re.compile(r"https?://[^\s<>\"'()\[\]]+")
 
 _monotonic = net._monotonic  # replaced by the fake clock in tests
@@ -286,6 +287,10 @@ def _apply_guardrails(response: ResearchResponse, sources, used_fallback_plan: b
         response = _cap_confidence(response, Confidence.low, f"only {len(sources)} usable source", trace)
     if not any(s.from_page for s in sources):
         response = _cap_confidence(response, Confidence.medium, "no full pages could be read, only search snippets", trace)
+    if response.confidence == Confidence.high:
+        supported, why = high_confidence_support(response, sources)
+        if not supported:
+            response = _cap_confidence(response, Confidence.medium, why, trace)
     extra = []
     if trace.deadline_hit:
         extra.append("The run hit its time budget, so the answer uses only the sources gathered before then.")
@@ -295,6 +300,41 @@ def _apply_guardrails(response: ResearchResponse, sources, used_fallback_plan: b
         response = response.model_copy(update={"limitations": response.limitations + extra})
         trace.guardrails.extend(f"limitation added: {e}" for e in extra)
     return response
+
+
+def high_confidence_support(response: ResearchResponse, sources) -> tuple[bool, str]:
+    """Does the answer have enough independent, full-page support for "high"?
+
+    Counts the sources the findings actually cite that were read as full pages,
+    one per organisation (site_name), excluding the vendor of anything the
+    question or answer names. Returns (enough?, explanation).
+    """
+    cited = {sid for f in response.key_findings for sid in f.source_ids}
+    text = " ".join([response.question, response.short_answer, *(f.claim for f in response.key_findings)])
+    entities = named_entities(text)
+    counted: dict[str, str] = {}  # organisation -> domain
+    excluded = []
+    for s in sources:
+        if s.source.id not in cited:
+            continue
+        url, domain = str(s.source.url), domain_of(str(s.source.url))
+        if not s.from_page:
+            excluded.append(f"{domain} (snippet only)")
+        elif is_vendor_source(url, entities):
+            excluded.append(f"{domain} (vendor of something the answer evaluates)")
+        elif site_name(url) in counted:
+            excluded.append(f"{domain} (same organisation as {counted[site_name(url)]})")
+        else:
+            counted[site_name(url)] = domain
+    if len(counted) >= MIN_INDEPENDENT_FULL_PAGES:
+        return True, ""
+    why = (
+        f"high confidence needs {MIN_INDEPENDENT_FULL_PAGES}+ cited full-page sources from different, "
+        f"non-vendor sites; found {len(counted)}"
+        + (f" ({', '.join(counted.values())})" if counted else "")
+        + (f"; not counted: {', '.join(excluded)}" if excluded else "")
+    )
+    return False, why
 
 
 _ORDER = [Confidence.low, Confidence.medium, Confidence.high]
