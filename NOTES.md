@@ -63,6 +63,21 @@ What this means for `llm.py`:
 
 ---
 
+## Failed LLM attempts in the trace
+
+Every failed LLM request is now recorded as a `FailedAttempt` (`agent/llm.py`):
+provider, model, `error_kind` (availability / validation / other), the error
+(first 300 chars), latency, and `failover_followed` (true for the attempts of
+a provider whose failure led to trying the next provider). That covers raised
+errors (timeouts, 429, 5xx, connection, 4xx), each retry separately, and
+responses that failed validation (the first, repaired one too). A request
+skipped for lack of time is not an attempt, since nothing was sent.
+`LLMResult.failed_attempts` collects them across providers, and each trace
+`LLMCall` stores them, so "why did synthesis take 34s?" is answered by the trace
+itself (e.g. three Groq 429s, failover followed, then Gemini). 8 tests.
+
+---
+
 ## Code-level full-pages override
 
 **Why.** In the final eval run the Gemini planner chose snippets-only for
@@ -137,9 +152,10 @@ failed in 1ms, Gemini answered plan and synthesis, 63.2s total.
 Plan 3.1s (Groq), 6 parallel searches ≤3.0s, 4 parallel scrapes ≤3.7s,
 **synthesis 33.9s, answered by the Gemini fallback** (74% of the run), ~2s
 other. Failover only happens on availability errors, so Groq returned
-429/5xx/timeouts. **Trace gap:** the trace stores only the provider that finally
+429/5xx/timeouts. **Trace gap:** the trace stored only the provider that finally
 answered, not why the primary failed. The reason was only in the log.
-Recording each failed attempt's error in the trace is a recommended next step.
+*Closed since:* each `LLMCall` in the trace now has `failed_attempts`
+(provider, model, error kind, error, latency, failover followed); see below.
 
 ### Final eval run (`eval/results/20261029-225924`, 9 queries)
 

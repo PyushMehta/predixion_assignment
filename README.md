@@ -11,7 +11,7 @@ assumptions, limitations and next steps. Every run also writes a full trace
 - Python 3.11+ (developed and tested on 3.14), Pydantic v2, no agent framework
 - LLM through the OpenAI SDK against any OpenAI-compatible endpoint
   (default: Groq primary, Google Gemini fallback, both free tiers)
-- 161 offline tests; an evaluation harness with a no-tools baseline and
+- 188 offline tests; an evaluation harness with a no-tools baseline and
   before/after results in [`EVALUATION.md`](EVALUATION.md)
 - Design decisions and their reasons, phase by phase: [`NOTES.md`](NOTES.md)
 
@@ -291,7 +291,7 @@ None of the following is built; this is the plan, in rough priority order.
    repeated questions.
 5. **Service packaging:** an HTTP API instead of the CLI, a container image,
    secrets from a secret manager instead of `.env`, and structured JSON logs.
-6. **CI:** run the 161 tests on every change and a small eval subset nightly,
+6. **CI:** run the 188 tests on every change and a small eval subset nightly,
    failing the build on regressions in the automatic checks.
 7. **Data-driven source quality:** replace the hand-made domain lists with
    learned or curated scores, and detect vendor/competitor bias.
@@ -307,7 +307,8 @@ aggregate them.
   fallback answer, insufficient-evidence answers. A rise means a provider or
   search problem.
 - **LLM errors by kind** (`availability`, `validation`, `deadline`, `other`),
-  429 rate, repair-retry rate.
+  429 rate, repair-retry rate. Each failed attempt is already in the trace
+  (provider, model, error kind, latency, whether failover followed).
 - **Tokens and cost** per run and per provider.
 - **Tool health:** search failure and empty-result rate; scrape failure rate by
   domain (403s and paywalls).

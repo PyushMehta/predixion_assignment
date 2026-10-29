@@ -62,6 +62,17 @@ _sleep = time.sleep
 _monotonic = time.monotonic
 
 
+class FailedAttempt(BaseModel):
+    """One LLM request that failed: an error response/exception, or output that failed validation."""
+
+    provider: str
+    model: str
+    error_kind: str  # AVAILABILITY, VALIDATION or OTHER
+    error: str
+    latency_ms: int
+    failover_followed: bool = False  # True if the next provider was tried after this provider failed
+
+
 class LLMResult(BaseModel, Generic[T]):
     ok: bool
     error: str | None = None
@@ -73,6 +84,7 @@ class LLMResult(BaseModel, Generic[T]):
     latency_ms: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
+    failed_attempts: list[FailedAttempt] = []  # every failed request on the way to this result
 
 
 @dataclass(frozen=True)
@@ -137,6 +149,7 @@ def complete_structured(
     `deadline` is a _monotonic() timestamp the whole call must finish by.
     """
     start = _monotonic()
+    attempts: list[FailedAttempt] = []
     try:
         providers = providers_from_env() if providers is None else providers
         if not providers:
@@ -154,10 +167,15 @@ def complete_structured(
                     log.warning("llm: not failing over to %s: %s", provider.name, blocker)
                     errors.append(f"fallback {provider.name} not tried: {blocker}")
                     break
-                log.warning("llm provider %s unavailable; trying fallback %s", providers[index - 1].name, provider.name)
-            result = _complete_with_provider(provider, system, user, schema, deadline)
+                previous = providers[index - 1]
+                for a in attempts:
+                    if (a.provider, a.model) == (previous.name, previous.model):
+                        a.failover_followed = True
+                log.warning("llm provider %s unavailable; trying fallback %s", previous.name, provider.name)
+            result = _complete_with_provider(provider, system, user, schema, deadline, attempts)
             result.fallback_used = index > 0
             result.latency_ms = int((_monotonic() - start) * 1000)
+            result.failed_attempts = attempts
             if result.ok:
                 return result
             errors.append(f"{provider.name}/{provider.model}: {result.error}")
@@ -167,7 +185,7 @@ def complete_structured(
         log.exception("unexpected error in complete_structured")
         return LLMResult[schema](
             ok=False, error_kind=OTHER, error=f"unexpected error: {type(exc).__name__}: {exc}",
-            latency_ms=int((_monotonic() - start) * 1000),
+            latency_ms=int((_monotonic() - start) * 1000), failed_attempts=attempts,
         )
 
 
@@ -182,16 +200,17 @@ def _failover_blocker(result: LLMResult | None, deadline: float | None) -> str |
 
 
 def _complete_with_provider(
-    provider: Provider, system: str, user: str, schema: type[T], deadline: float | None
+    provider: Provider, system: str, user: str, schema: type[T], deadline: float | None,
+    attempts: list[FailedAttempt],
 ) -> LLMResult[T]:
-    """Call one provider: request, validate, and repair once if needed."""
+    """Call one provider: request, validate, and repair once if needed. Failures are appended to `attempts`."""
     result = LLMResult[schema](ok=False, provider=provider.name, model=provider.model)
     messages = [
         {"role": "system", "content": system + JSON_INSTRUCTION},
         {"role": "user", "content": user},
     ]
     for validation_attempt in (1, 2):
-        response, error, kind = _call_with_retry(provider, messages, schema, deadline)
+        response, error, kind, latency_ms = _call_with_retry(provider, messages, schema, deadline, attempts)
         if response is None:
             if validation_attempt == 2 and kind == DEADLINE:
                 kind = VALIDATION  # the first answer was invalid; there was just no time to repair it
@@ -209,6 +228,10 @@ def _complete_with_provider(
             return result
         except ValidationError as exc:
             summary = _summarise_validation_error(exc)
+            attempts.append(FailedAttempt(
+                provider=provider.name, model=provider.model, error_kind=VALIDATION,
+                error=f"output failed validation: {summary}"[:300], latency_ms=latency_ms,
+            ))
             if validation_attempt == 2:
                 result.error = f"response failed validation after one repair attempt: {summary}"
                 result.error_kind = VALIDATION
@@ -222,14 +245,20 @@ def _complete_with_provider(
     raise AssertionError("unreachable")
 
 
-def _call_with_retry(provider: Provider, messages: list[dict], schema: type[BaseModel], deadline: float | None):
-    """One logical LLM request with retries. Returns (response, None, None) or (None, error, error_kind)."""
+def _call_with_retry(
+    provider: Provider, messages: list[dict], schema: type[BaseModel], deadline: float | None,
+    attempts: list[FailedAttempt],
+):
+    """One logical LLM request with retries; each failed request is appended to `attempts`.
+
+    Returns (response, None, None, latency_ms) or (None, error, error_kind, latency_ms).
+    """
     for attempt in range(MAX_RETRIES + 1):
         timeout = TIMEOUT_S
         if deadline is not None:
             left = deadline - _monotonic()
-            if left < MIN_ATTEMPT_S:
-                return None, f"not enough time left before the run deadline ({max(left, 0):.0f}s)", DEADLINE
+            if left < MIN_ATTEMPT_S:  # no request is made, so nothing to record as an attempt
+                return None, f"not enough time left before the run deadline ({max(left, 0):.0f}s)", DEADLINE, 0
             timeout = min(TIMEOUT_S, left)
         start = _monotonic()
         try:
@@ -247,19 +276,24 @@ def _call_with_retry(provider: Provider, messages: list[dict], schema: type[Base
                 "llm call failed: provider=%s model=%s latency_ms=%d attempt=%d/%d error=%s",
                 provider.name, provider.model, latency_ms, attempt + 1, MAX_RETRIES + 1, error,
             )
+            attempts.append(FailedAttempt(
+                provider=provider.name, model=provider.model, error_kind=kind, error=error[:300],
+                latency_ms=latency_ms,
+            ))
             if wait is None or attempt == MAX_RETRIES:
-                return None, error, kind
+                return None, error, kind, latency_ms
             if deadline is not None and deadline - _monotonic() - wait < MIN_ATTEMPT_S:
-                return None, f"{error} (no time left to retry before the run deadline)", kind
+                return None, f"{error} (no time left to retry before the run deadline)", kind, latency_ms
             _sleep(wait)
             continue
+        latency_ms = int((_monotonic() - start) * 1000)
         usage = getattr(response, "usage", None)
         log.info(
             "llm call ok: provider=%s model=%s latency_ms=%d tokens_in=%s tokens_out=%s",
-            provider.name, provider.model, int((_monotonic() - start) * 1000),
+            provider.name, provider.model, latency_ms,
             getattr(usage, "prompt_tokens", "?"), getattr(usage, "completion_tokens", "?"),
         )
-        return response, None, None
+        return response, None, None, latency_ms
     raise AssertionError("unreachable")
 
 

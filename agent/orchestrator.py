@@ -30,7 +30,7 @@ from agent.filter import (
     MAX_PER_DOMAIN, MIN_RELEVANCE, USER_URL_RELEVANCE, Candidate, DropDecision,
     domain_of, filter_sources, normalise_url,
 )
-from agent.llm import LLMResult, Provider
+from agent.llm import FailedAttempt, LLMResult, Provider
 from agent.passages import select_passages
 from agent.planner import make_plan_detailed
 from agent.quality import is_vendor_source, named_entities, quality_adjustment, site_name
@@ -97,6 +97,7 @@ class LLMCall(BaseModel):
     latency_ms: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
+    failed_attempts: list[FailedAttempt] = []  # every failed request (provider, model, error, latency, failover?)
 
 
 class Trace(BaseModel):
@@ -441,6 +442,7 @@ def _record_llm(trace: Trace, stage: str, llm: LLMResult | None) -> None:
         stage=stage, ok=llm.ok, error=llm.error, error_kind=llm.error_kind, provider=llm.provider, model=llm.model,
         fallback_provider_used=llm.fallback_used, latency_ms=llm.latency_ms,
         input_tokens=llm.input_tokens, output_tokens=llm.output_tokens,
+        failed_attempts=llm.failed_attempts,
     ))
     if llm.fallback_used:
         trace.fallbacks.append(f"{stage}_fallback_provider")
