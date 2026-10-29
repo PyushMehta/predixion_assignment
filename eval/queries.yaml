@@ -6,6 +6,7 @@
 #   known_weak     - a case where earlier runs showed a weakness
 #   adversarial    - inputs designed to make the agent misbehave
 #   unanswerable   - nothing reliable exists to answer it
+#   simple_factual - a short factual question where search snippets should suffice
 #
 # The four "assignment" questions are the exact text from the brief.
 
@@ -70,3 +71,12 @@ queries:
     expected: >-
       Low confidence. May report hosts, odds or favourites with sources,
       but must not state any winner as fact.
+
+  - id: simple_fact
+    category: simple_factual
+    question: What is the capital of Australia?
+    expected: >-
+      Planner sets needs_full_pages=false, so no pages are scraped and the
+      answer comes from search snippets. Answers Canberra, cited. Confidence
+      at most medium (snippet-only answers are capped). Faster than the
+      research queries, since there are no scrapes.

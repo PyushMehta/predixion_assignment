@@ -24,6 +24,11 @@ class Plan(BaseModel):
     question: str
     sub_questions: list[str] = Field(min_length=1, max_length=5)
     steps: list[PlanStep] = Field(min_length=1, max_length=8)  # cap = cost/latency control
+    needs_full_pages: bool = Field(
+        default=True,
+        description="False when search snippets are enough (simple factual questions); "
+                    "true for comparisons and research questions",
+    )
 
 
 # ---------- Sources ----------

@@ -86,6 +86,7 @@ class Trace(BaseModel):
     started_at: str
     plan: Plan | None = None
     tool_calls: list[ToolCall] = []
+    tool_selection: str = ""  # whether pages were read, and why (planner's needs_full_pages)
     skipped: list[DropDecision] = []  # steps/URLs deliberately not executed
     filter_kept: list[str] = []  # "S1 https://..."
     filter_dropped: list[DropDecision] = []
@@ -159,9 +160,21 @@ def _run_steps(question, trace, providers, search_fn, scrape_fn, gather_deadline
     items = [item for r in searches.values() if r.ok for item in r.items]
     log.info("step search: queries=%d ok=%d items=%d", len(queries), sum(r.ok for r in searches.values()), len(items))
 
-    # 3. Scrape (only URLs from search results or the user's question)
+    # 3. Scrape (only URLs from search results or the user's question), if the plan needs full pages
     user_urls = _urls_in(question)
-    targets = _scrape_targets(plan, items, user_urls, trace)
+    if plan.needs_full_pages:
+        trace.tool_selection = "full pages: planner set needs_full_pages=true"
+        targets = _scrape_targets(plan, items, user_urls, trace)
+    else:
+        trace.tool_selection = (
+            "snippets only: planner set needs_full_pages=false (simple factual question); "
+            "only URLs written in the question are read"
+        )
+        targets = user_urls[:MAX_SCRAPES]
+        for step in plan.steps:
+            if step.tool == "scrape_page" and step.query and step.query not in targets:
+                trace.skipped.append(DropDecision(url=step.query, reason="scrape skipped: needs_full_pages=false"))
+    log.info("step tool selection: needs_full_pages=%s scrape_targets=%d", plan.needs_full_pages, len(targets))
     pages = _run_parallel(scrape_fn, targets, gather_deadline, "scrape_page", trace)
     log.info("step scrape: targets=%d ok=%d", len(targets), sum(p.ok for p in pages.values()))
 

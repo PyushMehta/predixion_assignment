@@ -104,6 +104,8 @@ class Checks(BaseModel):
     fallbacks: list[str] = []
     deadline_hit: bool = False  # total run time over the run budget (RUN_DEADLINE_S)
     gathering_cut: bool = False  # the orchestrator stopped gathering early
+    needs_full_pages: bool | None = None  # the planner's tool-selection decision
+    pages_read: int = 0  # successful scrape_page calls
 
 
 class QueryResult(BaseModel):
@@ -163,6 +165,8 @@ def check_response(response: ResearchResponse, trace: Trace) -> Checks:
     checks.fallbacks = trace.fallbacks
     checks.deadline_hit = trace.total_ms > RUN_DEADLINE_S * 1000
     checks.gathering_cut = trace.deadline_hit
+    checks.needs_full_pages = trace.plan.needs_full_pages if trace.plan else None
+    checks.pages_read = sum(1 for c in trace.tool_calls if c.tool == "scrape_page" and c.ok)
     return checks
 
 
@@ -389,6 +393,7 @@ def to_markdown(results: list[QueryResult], meta: dict) -> str:
                 f"*Checks:* LLM calls: {'; '.join(c.llm_calls) or 'none'} | tokens {c.tokens_in}/{c.tokens_out} | "
                 f"latency {c.latency_s}s | fallbacks: {', '.join(c.fallbacks) or 'none'} | "
                 f"over {RUN_DEADLINE_S:.0f}s budget: {c.deadline_hit} | gathering cut: {c.gathering_cut} | "
+                f"needs full pages: {c.needs_full_pages} ({c.pages_read} read) | "
                 f"problems: {', '.join(problems) or 'none'}",
                 "",
                 f"*Trace:* `{r.trace_path}`",

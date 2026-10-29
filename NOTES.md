@@ -63,6 +63,45 @@ What this means for `llm.py`:
 
 ---
 
+## Task-dependent tool selection (`needs_full_pages`)
+
+**Decision.** `Plan` gained `needs_full_pages: bool` (schema change requested by
+the user; default `True`). The planner sets it false only for simple factual
+questions whose answer search snippets can state directly (a capital, a date,
+a definition), and true for comparisons, pros/cons, research and "find N"
+questions. When unsure, true. When false, the orchestrator still searches but
+skips scraping. Snippet-only answers are already capped at medium confidence
+by the Phase 3 guardrail, so skipping pages can't produce an overconfident answer.
+
+- **Default and fallback are `True`.** A model that omits the field, or the
+  deterministic fallback plan, reads pages: skipping evidence must be a positive
+  decision, never an accident.
+- **URLs written in the question are still read** when the flag is false: the
+  user asked for them explicitly. Planner `scrape_page` steps are skipped and
+  recorded in `trace.skipped`.
+- **Visible:** one log line per run (`step tool selection: needs_full_pages=…
+  scrape_targets=…`), `trace.tool_selection` says what happened and why, the
+  plan in the trace carries the flag, the eval harness records
+  `needs_full_pages` and `pages_read`, and the UI's Plan expander shows it.
+- **Eval query added:** `simple_fact` ("What is the capital of Australia?",
+  category `simple_factual`), expected to trigger it.
+- **Tests:** 9 new (142 total): planner pass-through and defaults, prompt rule,
+  scraping skipped with confidence capped, full pages unchanged, question URLs
+  still read, planner scrape steps skipped and recorded, harness fields.
+
+**Live check (2026-10-29, Groq):** "What is the capital of Australia?" →
+`needs_full_pages=False`, 0 pages read, "Canberra", medium, 6.1s. "Compare
+the top 3 open-source vector databases…" → `needs_full_pages=True`, 4 pages
+read, 45.7s.
+
+**Limitations.** The decision is the planner model's judgement: a wrong
+"false" on a research question would answer from snippets (capped at medium,
+but thinner), and a wrong "true" only costs time. It hasn't been run through the
+full eval yet: the 9th query is in `queries.yaml`, but the before/after results
+cover the original 8.
+
+---
+
 ## Phase 5: Evaluation-driven fixes (before/after)
 
 Before: `eval/results/20261029-213848` (combined baseline, manually reviewed).

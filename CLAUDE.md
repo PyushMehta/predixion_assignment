@@ -30,7 +30,7 @@ confidence, assumptions, limitations and next steps.
 agent/
   schemas.py       # user-written, LLM output models only — DO NOT change without asking the user
                    # approved changes: key_findings may be empty when confidence is low (Phase 3);
-                   # short_answer max 600 -> 1000 chars (Phase 5)
+                   # short_answer max 600 -> 1000 chars (Phase 5); Plan.needs_full_pages (default True)
   llm.py           # LLM wrapper: structured output, validation + 1 repair, retries, fallback provider;
                    # optional `deadline` bounds timeouts/retries/repair/failover; failover only on
                    # availability errors (timeout/429/5xx/connection); result has error_kind

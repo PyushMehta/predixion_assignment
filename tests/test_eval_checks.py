@@ -77,7 +77,7 @@ def test_docs_and_github_have_their_own_bucket():
 
 def test_queries_file_is_valid_and_has_required_cases():
     queries = load_queries()
-    assert len(queries) == 8 and len({q.id for q in queries}) == 8
+    assert len(queries) == 9 and len({q.id for q in queries}) == 9
     assert {"nonsense", "prompt_injection", "future_world_cup", "nuclear_vs_wind"} <= {q.id for q in queries}
     assert sum(q.category == "assignment" for q in queries) == 4
     assert all(q.expected.strip() for q in queries)
