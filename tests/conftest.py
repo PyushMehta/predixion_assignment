@@ -3,6 +3,7 @@
 import httpx
 import pytest
 
+from agent import llm
 from agent.tools import net
 
 
@@ -21,12 +22,13 @@ class FakeClock:
 
 @pytest.fixture(autouse=True)
 def clock(monkeypatch):
-    """Replace real time in the retry helper, so tests never wait and
-    deadlines can be tested exactly. Handlers call clock.advance() to
+    """Replace real time in the tool and LLM retry loops, so tests never wait
+    and deadlines can be tested exactly. Handlers call clock.advance() to
     simulate a slow request; backoff sleeps advance it automatically."""
     fake = FakeClock()
-    monkeypatch.setattr(net, "_monotonic", fake.monotonic)
-    monkeypatch.setattr(net, "_sleep", fake.advance)
+    for module in (net, llm):
+        monkeypatch.setattr(module, "_monotonic", fake.monotonic)
+        monkeypatch.setattr(module, "_sleep", fake.advance)
     return fake
 
 

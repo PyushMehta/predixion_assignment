@@ -11,16 +11,15 @@ confidence, assumptions, limitations and next steps.
 ## Stack
 - Python 3.11+, Pydantic v2
 - LLM: OpenAI **SDK** pointed at any OpenAI-compatible endpoint, behind one small wrapper
-  (`agent/llm.py`). Provider is chosen purely by env vars `LLM_BASE_URL`, `LLM_API_KEY`,
-  `LLM_MODEL`; no provider-specific code. Default: Google Gemini free tier
-  (`https://generativelanguage.googleapis.com/v1beta/openai/`, model `gemini-3.8-flash`).
-  Structured output via `client.chat.completions.parse(response_format=<PydanticModel>)`,
-  which Gemini's OpenAI-compatible endpoint supports (beta).
-  Free tier is ~10–15 requests/minute: llm.py MUST retry HTTP 429 with backoff long enough
-  to clear a per-minute window (honour any server-given retry delay, cap the total wait),
-  and fail fast with a clear error when the daily quota is exhausted. Also retry 503
-  ("model overloaded", seen live on gemini-3.8-flash). Use a ~60s per-call timeout: Flash-Lite
-  took ~29s for a short structured answer. See NOTES.md "Observed in a live check".
+  (`agent/llm.py`, single entry point `complete_structured(system, user, schema)`).
+  Providers are chosen purely by env vars; no provider-specific code:
+  - primary `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL`: Gemini free tier, `gemini-3.5-flash-lite`
+  - optional fallback `LLM_FALLBACK_*`: Groq, `openai/gpt-oss-120b`
+  - `LLM_TEMPERATURE` (default 0)
+  Structured output: `response_format` json_schema, **non-strict**, built from the Pydantic
+  schema, then always re-validated with Pydantic plus one repair retry. Retries: 60s timeout,
+  2 retries on timeout/429/503, honouring server retry delays; daily quota fails fast.
+  Details and the reasons behind them: NOTES.md "Phase 2".
 - Search: Tavily API
 - Scraping: httpx + BeautifulSoup / trafilatura
 - Interface: argparse CLI (`main.py`); maybe Streamlit later
@@ -30,8 +29,8 @@ confidence, assumptions, limitations and next steps.
 ```
 agent/
   schemas.py       # user-written, LLM output models only — DO NOT change without asking the user
-  llm.py           # LLM wrapper: structured output, retries, timeouts
-  planner.py
+  llm.py           # LLM wrapper: structured output, validation + 1 repair, retries, fallback provider
+  planner.py       # make_plan(question) -> Plan; deterministic one-step plan if the LLM fails
   tools/results.py   # tool result models: SearchResult (+SearchItem), PageResult
   tools/net.py       # shared send_with_retry: 10s timeout, retries on timeout/429/5xx, optional deadline
   tools/injection.py # shared prompt-injection phrase check (flags, never removes)
@@ -42,7 +41,9 @@ agent/
   orchestrator.py
 eval/test_queries.py
 scripts/try_tools.py  # manual real-network smoke test of the tools
-tests/                # pytest, network mocked via httpx.MockTransport (tools accept `client=`)
+scripts/try_planner.py # manual real-LLM smoke test of the planner
+tests/                # pytest, no network: tools take `client=` (httpx.MockTransport),
+                      # LLM code takes `providers=` (tests/llm_fakes.py FakeClient)
 main.py
 NOTES.md              # design decisions + known limitations, per phase
 ```
@@ -50,7 +51,7 @@ NOTES.md              # design decisions + known limitations, per phase
 ## Rules
 - Work one phase at a time. Do not build later phases until the user asks.
 - Phase order: setup (done) → Phase 1 tools (done) (`results.py`, search, scraper, with tests; no LLM
-  dependency) → LLM wrapper and later phases. Follow the user's written spec for each phase.
+  dependency) → Phase 2 LLM wrapper + planner (done) → later phases as specified by the user. Follow the user's written spec for each phase.
 - Keep it simple: single-agent planner-executor. No multi-agent, no LangChain.
 - Every tool returns a typed result object from `agent/tools/results.py` (`SearchResult`, `PageResult`),
   never raw dicts or exceptions. Each has `ok: bool` and `error: str | None`; tools never raise.
