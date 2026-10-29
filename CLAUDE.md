@@ -40,7 +40,9 @@ agent/
   filter.py        # deterministic: dedup, injection, relevance>=0.5, text, 2/domain, max 8 -> S1..Sn
   synthesizer.py   # model writes the answer only; we attach sources; fallback response on failure
   orchestrator.py  # run(question) -> RunResult; budgets: 2 LLM calls, 4 scrapes, 90s; trace -> runs/
-eval/test_queries.py
+eval/queries.yaml     # 8 eval queries with id, category, EXPECTED behaviour (written before running)
+eval/run_eval.py      # harness: real agent per query, automatic checks, --baseline (1 LLM call, no tools)
+eval/results/         # <timestamp>.json + .md per eval run (manual-review columns left blank)
 scripts/try_tools.py  # manual real-network smoke test of the tools
 scripts/try_planner.py # manual real-LLM smoke test of the planner
 tests/                # pytest, no network: tools take `client=` (httpx.MockTransport),
@@ -53,7 +55,11 @@ NOTES.md              # design decisions + known limitations, per phase
 - Work one phase at a time. Do not build later phases until the user asks.
 - Phase order: setup (done) → Phase 1 tools (done) (`results.py`, search, scraper, with tests; no LLM
   dependency) → Phase 2 LLM wrapper + planner (done) → Phase 3 filter, synthesizer,
-  orchestrator, CLI (done) → later phases as specified by the user. Follow the user's written spec for each phase.
+  orchestrator, CLI (done) → Phase 4 eval harness + baseline run (done) → later phases as
+  specified by the user.
+- Evaluation: never write judgements of answer quality yourself; the user fills in the manual
+  review columns. Don't fix retrieval issues found by eval until asked: the user wants
+  before/after numbers, so keep the baseline results file unchanged. Follow the user's written spec for each phase.
 - Keep it simple: single-agent planner-executor. No multi-agent, no LangChain.
 - Every tool returns a typed result object from `agent/tools/results.py` (`SearchResult`, `PageResult`),
   never raw dicts or exceptions. Each has `ok: bool` and `error: str | None`; tools never raise.

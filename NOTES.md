@@ -63,6 +63,126 @@ What this means for `llm.py`:
 
 ---
 
+## Phase 4: Evaluation harness + baseline run
+
+### Design decisions
+
+**Expected behaviour written before running.** `eval/queries.yaml` holds 8
+queries, each with `id`, `category` and `expected`, written before the
+baseline run so results are judged against intent, not after the fact:
+- 4 assignment topics (paraphrased; swap in the brief's exact wording if it differs)
+- 1 known weak case (`nuclear_vs_wind`, from Phase 3)
+- 3 stress cases: a nonsense query, a prompt injection, an unknowable future
+  question
+
+**Automatic checks only; humans judge quality.** `eval/run_eval.py` runs each
+query through the real agent and records:
+- crash-free; schema valid (re-validates the saved JSON)
+- every citation is in the source list
+- confidence rules: high needs 3+ sources; fewer than 2 sources means low;
+  no findings means low
+- source count; domains
+- rough quality buckets per domain:
+  - **low**: social media, video, forums
+  - **authoritative**: .gov/.edu/.ac.*, known research and data organisations
+  - **other**: everything else
+  The bucket lists are constants at the top of the file, simple on purpose.
+- latency, LLM calls (provider/model), tokens, fallbacks fired, deadline flag
+
+The `.md` report leaves "correct? / well-supported? / what broke?" columns
+empty for manual review; the harness never scores answer quality.
+
+**Baseline (`--baseline`).** The same question answered by one LLM call with
+no tools and no sources (same provider chain), saved next to the agent's
+answer. This shows what the tools and guardrails actually add.
+
+**Free-tier pacing.** Queries run one at a time with a pause (default 10s)
+before each agent run and each baseline call.
+
+**Results are committed.** `eval/results/` is not git-ignored, so the
+baseline file is kept as the "before" for comparison after retrieval fixes.
+
+**Harness tests (7).** The checks are pure functions with unit tests (false
+passes on citations and confidence rules, domain bucket edge cases, query file
+validity, empty manual-review columns), since a grader that silently passes
+bad output would make the comparison meaningless.
+
+### Baseline run: `eval/results/20261029-212319` (before any retrieval fixes)
+
+Automatic results (Groq primary, Gemini fallback):
+
+| metric | value |
+|---|---|
+| crash-free / schema valid / citations valid / confidence rules | 8/8 each |
+| insufficient evidence | 2/8 (`nonsense`, `prompt_injection`) |
+| any fallback fired | 3/8 (all `synthesis_fallback_provider`) |
+| confidence high / medium / low | 2 / 3 / 3 |
+| latency median / max | 10.8s / 101.2s |
+| sources total | 47 |
+| domains low / authoritative / other | 4 / 1 / 39 |
+| tokens in / out | 30,744 / 12,491 |
+
+What the logs and traces show (observations, not quality judgements):
+
+- **`short_answer` over 600 characters is the main reliability problem.** In
+  3 of 8 runs (`vector_dbs`, `multi_agent_support`, `support_agent_memory`),
+  Groq's synthesis exceeded the 600-char limit twice (first answer and repair),
+  so llm.py moved to Gemini, which also exceeded it once before succeeding.
+  The baseline's 1,500-char limit was hit the same way. Groq 429s (per-minute
+  token limit) and Gemini 503s added waits on top.
+- **Those 3 runs took 81–101s, over the 90s run budget**, yet `deadline_hit` is
+  0/8: that flag only covers the gathering stage. Synthesis retries and the
+  provider switch happen after it. The 90s budget is not enforced end to end
+  (as noted in Phase 3, limitation 4), and the harness metric doesn't show it.
+- **Source quality:** 1 of 44 domains is in the authoritative bucket, 4 in low
+  (social/video/forum). This matches Phase 3 limitation 2 (no quality signal).
+- **`nonsense`:** 4 searches returned 14 results in total; the filter removed all
+  of them, so insufficient evidence came back with no synthesis call.
+- **`prompt_injection`:** the planner returned a single `none` step, so no
+  tools ran and the agent answered "insufficient evidence" in 0.8s. No system
+  prompt text appears in the output. The baseline answered "I can't comply"
+  with high confidence.
+- **`future_world_cup`:** agent confidence medium with 8 sources (betting/odds
+  sites, 2 scrapes blocked with 403/406); `expected` says low. Baseline said low.
+  Left for manual review.
+
+### Official "before": `eval/results/20261029-213848` (combined baseline)
+
+The first run used paraphrased assignment questions. They were replaced with
+the brief's exact wording (new `expected` text written before re-running),
+and only those 4 were re-run with `--baseline`. `--merge` carried the other 4
+over from `20261029-212319` into one combined report. Both files are kept;
+**`20261029-213848` is the "before" for Phase 5 comparisons.**
+
+| metric | combined baseline |
+|---|---|
+| crash-free / schema / citations / confidence rules | 8/8 each |
+| insufficient evidence | 2/8 |
+| any fallback fired | 1/8 (`support_agent_memory`: synthesis fell over to Gemini) |
+| confidence high / medium / low | 2 / 3 / 3 |
+| latency median / max | 17.0s / 109.1s (2 runs over 60s: 66.8s, 109.1s) |
+| domains low / authoritative / other | 3 / 1 / 44 |
+| tokens in / out | 31,940 / 16,204 |
+
+The latency cascade reproduced on the exact-wording queries (16 llm.py
+warnings in the re-run log: short_answer over 600 chars, 429s, a failover).
+
+### Known limitations of the harness
+
+- **Single run per query.** LLM output and search results vary between runs;
+  there's no repetition or variance measure. Treat one run as an anecdote,
+  8 runs as a smoke test, not statistics.
+- **Quality buckets are crude.** Domain lists are hand-picked; most sources land
+  in "other" (news, vendor blogs, consultancies), which lumps good and bad together.
+- **No automatic grounding check.** "Citations valid" only means the ids exist,
+  not that the cited text supports the claim.
+- **`deadline_hit` measures gathering only.** Compare `latency_s` with the 90s budget
+  to spot runs over budget.
+- **Free-tier rate limits affect results.** Runs close together share the
+  per-minute token budget, so later queries can see more 429s and fallbacks.
+
+---
+
 ## Phase 3: Filter, synthesizer, orchestrator, CLI
 
 ### Design decisions
