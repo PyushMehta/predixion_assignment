@@ -204,6 +204,10 @@ describing a company, because the agent cited its sources.
   enough, so no pages are fetched; e.g. "What is the capital of Australia?"
   took 6.1s with 0 pages read), and true for comparisons and research (up to
   4 pages read). Snippet-only answers are capped at medium confidence.
+  A code rule overrides a "snippets" decision for comparison or numeric
+  questions (compare, vs, pros and cons, top N, best, per, %, numbers with
+  units, how many/much), because snippets rarely hold tables or both sides of
+  a comparison.
 - **httpx + trafilatura (BeautifulSoup fallback)**, for reading pages.
   trafilatura extracts the main article text; BeautifulSoup strips scripts,
   navigation and ad-like blocks when trafilatura finds nothing. Only HTML is
@@ -359,11 +363,14 @@ From the evaluation and [`NOTES.md`](NOTES.md):
   question, so the docs/GitHub boost had nothing to lift. Later runs did find
   GitHub and official docs, which shows search results vary between runs.
   *Fix:* add docs/GitHub-targeted queries to the plan for technical questions.
-- **Tool selection depends on the planner model.** In the final eval run (where
-  the Gemini fallback did the planning), nuclear vs wind was judged
-  "snippets are enough", so Our World in Data wasn't read. Groq judged
-  comparison questions correctly in live checks. *Fix:* force full pages in
-  code when the question asks for numbers or comparisons.
+- **Tool selection depended on the planner model (mitigated).** In the final
+  eval run (where the Gemini fallback did the planning), nuclear vs wind was
+  judged "snippets are enough", so Our World in Data wasn't read. A code
+  rule now forces full pages for comparison and numeric questions (compare,
+  vs/versus, pros and cons, top N, best, per, %, numbers with units, how
+  many/much) and records the override in the trace. Not yet re-run live: the
+  Groq quota was exhausted. Questions outside those patterns still rely on
+  the planner's judgement.
 - **No entity checks.** For "Find 5 Indian B2B SaaS startups in HR tech", the
   before run included a company listed under Singapore, and the after run
   included two established vendors founded in 1994 and 2001. Constraints in

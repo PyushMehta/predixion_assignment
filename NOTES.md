@@ -63,6 +63,34 @@ What this means for `llm.py`:
 
 ---
 
+## Code-level full-pages override
+
+**Why.** In the final eval run the Gemini planner chose snippets-only for
+"Is nuclear power safer than wind per TWh of electricity?", so Our World in
+Data wasn't read. The planner's `needs_full_pages` is model judgement and
+varies by provider.
+
+**Rule (`orchestrator.full_pages_required`).** If the question matches a
+comparison or numeric pattern, pages are read even when the planner said
+false: compare/comparison, vs/versus, pros and cons, top N, best, per (whole
+word), %/percent, a number with a unit (ms, km, TWh, million, $5 …), how
+many/much. The first matching pattern is the reason. `trace.tool_selection`
+records it ("full pages: forced by code rule (per-unit rate); the planner had
+set needs_full_pages=false"). The effective plan in the trace shows `true`,
+and a log line marks the override. The rule only ever *adds* pages; it never
+turns them off.
+
+**Checked against the eval questions:** nuclear vs wind (per), vector DBs
+(compare), multi-agent (pros and cons) and memory (compare) all match.
+Simple facts, the World Cup, the nonsense query and the injection all don't.
+"superb" doesn't match "per" (word boundaries). 19 tests.
+
+**Limitations.** Pattern lists are English-only and incomplete: "safer
+than" alone, or "Find 5 …" without "top", isn't caught, so the planner
+still decides those. Not yet re-run live (Groq daily quota exhausted).
+
+---
+
 ## Overconfidence guardrail, outage switch, final run
 
 ### Overconfidence guardrail (orchestrator, after synthesis)

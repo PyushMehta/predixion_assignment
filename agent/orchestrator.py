@@ -54,6 +54,24 @@ SYNTHESIS_RESERVE_S = 30.0  # gathering must stop this long before the deadline
 MIN_INDEPENDENT_FULL_PAGES = 3  # "high" confidence needs this many cited, full-page, non-vendor sites
 URL_PATTERN = re.compile(r"https?://[^\s<>\"'()\[\]]+")
 
+# Questions that need full pages whatever the planner says: comparisons and numbers.
+# Snippets rarely carry tables, figures or both sides of a comparison.
+_UNITS = (
+    r"%|percent|kg|g|km|m|mi|mph|kwh|mwh|gwh|twh|kw|mw|gw|mb|gb|tb|ms|sec|seconds?|minutes?|hours?|"
+    r"days?|years?|usd|eur|inr|million|billion|trillion"
+)
+FULL_PAGE_PATTERNS = [
+    ("comparison", re.compile(r"\bcompar\w*", re.I)),
+    ("vs/versus", re.compile(r"\b(vs\.?|versus)(?=\s|$)", re.I)),
+    ("pros and cons", re.compile(r"\bpros\s+(and|&)\s+cons\b", re.I)),
+    ("top N", re.compile(r"\btop\s+(\d+|three|five|ten)\b", re.I)),
+    ("best", re.compile(r"\bbest\b", re.I)),
+    ("per-unit rate", re.compile(r"\bper\b", re.I)),
+    ("percentage", re.compile(r"%|\bpercent(age)?\b", re.I)),
+    ("number with unit", re.compile(r"[$€₹]\s?\d|\b\d+(?:[.,]\d+)?\s?(?:" + _UNITS + r")\b", re.I)),
+    ("how many/much", re.compile(r"\bhow\s+(many|much)\b", re.I)),
+]
+
 _monotonic = net._monotonic  # replaced by the fake clock in tests
 
 
@@ -163,7 +181,15 @@ def _run_steps(question, trace, providers, search_fn, scrape_fn, gather_deadline
 
     # 3. Scrape (only URLs from search results or the user's question), if the plan needs full pages
     user_urls = _urls_in(question)
-    if plan.needs_full_pages:
+    override = full_pages_required(question)
+    if not plan.needs_full_pages and override:
+        plan = trace.plan = plan.model_copy(update={"needs_full_pages": True})
+        trace.tool_selection = (
+            f"full pages: forced by code rule ({override}); the planner had set needs_full_pages=false"
+        )
+        log.info("step tool selection: overriding planner, full pages needed (%s)", override)
+        targets = _scrape_targets(plan, items, user_urls, trace)
+    elif plan.needs_full_pages:
         trace.tool_selection = "full pages: planner set needs_full_pages=true"
         targets = _scrape_targets(plan, items, user_urls, trace)
     else:
@@ -217,6 +243,14 @@ def _run_steps(question, trace, providers, search_fn, scrape_fn, gather_deadline
 
 
 # ---------- steps ----------
+
+def full_pages_required(question: str) -> str | None:
+    """Name the first comparison/numeric pattern in `question`, or None if there is none."""
+    for name, pattern in FULL_PAGE_PATTERNS:
+        if pattern.search(question):
+            return name
+    return None
+
 
 def _scrape_targets(plan: Plan, items: list[SearchItem], user_urls: list[str], trace: Trace) -> list[str]:
     """Pick up to MAX_SCRAPES URLs: user URLs, then planner URLs we can vouch for, then top results."""
