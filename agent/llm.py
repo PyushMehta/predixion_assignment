@@ -21,9 +21,11 @@ import os
 import re
 import time
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any, Generic, TypeVar
 from urllib.parse import urlparse
 
+import httpx
 import openai
 from pydantic import BaseModel, ValidationError
 
@@ -80,8 +82,27 @@ class Provider:
     client: Any  # openai.OpenAI, or a fake with .chat.completions.create(**kwargs)
 
 
-def providers_from_env() -> list[Provider]:
-    """Primary (LLM_*) then optional fallback (LLM_FALLBACK_*), skipping incomplete ones."""
+class _OutageClient:
+    """Stands in for a provider that can't be reached: every request fails with a connection error."""
+
+    def __init__(self, base_url: str):
+        request = httpx.Request("POST", base_url)
+
+        def create(**kwargs):
+            raise openai.APIConnectionError(message="simulated outage: provider unreachable", request=request)
+
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=create))
+
+
+def providers_from_env(*, simulate_primary_outage: bool | None = None) -> list[Provider]:
+    """Primary (LLM_*) then optional fallback (LLM_FALLBACK_*), skipping incomplete ones.
+
+    `simulate_primary_outage` makes the primary unreachable (a connection error,
+    i.e. an availability failure), to demonstrate failover to the fallback.
+    When not given, it comes from LLM_SIMULATE_PRIMARY_OUTAGE (off by default).
+    """
+    if simulate_primary_outage is None:
+        simulate_primary_outage = os.getenv("LLM_SIMULATE_PRIMARY_OUTAGE", "").strip().lower() in {"1", "true", "yes", "on"}
     providers = []
     for prefix in ("LLM_", "LLM_FALLBACK_"):
         base_url = os.getenv(f"{prefix}BASE_URL", "").strip()
@@ -90,7 +111,14 @@ def providers_from_env() -> list[Provider]:
         if not (base_url and api_key and model):
             log.debug("%s* not fully configured; skipping that provider", prefix)
             continue
-        client = openai.OpenAI(base_url=base_url, api_key=api_key, timeout=TIMEOUT_S, max_retries=0)
+        if simulate_primary_outage and prefix == "LLM_":
+            client = _OutageClient(base_url)
+            log.warning(
+                "SIMULATED OUTAGE: primary LLM provider %s will fail every request (demo switch; "
+                "unset LLM_SIMULATE_PRIMARY_OUTAGE to turn off)", base_url,
+            )
+        else:
+            client = openai.OpenAI(base_url=base_url, api_key=api_key, timeout=TIMEOUT_S, max_retries=0)
         providers.append(Provider(name=urlparse(base_url).hostname or base_url, model=model, client=client))
     return providers
 

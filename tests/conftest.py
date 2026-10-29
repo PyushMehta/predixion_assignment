@@ -7,6 +7,12 @@ from agent import llm, orchestrator
 from agent.tools import net
 
 
+@pytest.fixture(autouse=True)
+def no_simulated_outage(monkeypatch):
+    """A demo switch left on in the developer's shell must not leak into tests."""
+    monkeypatch.delenv("LLM_SIMULATE_PRIMARY_OUTAGE", raising=False)
+
+
 class FakeClock:
     """Stands in for time.monotonic/time.sleep: time only moves when told to."""
 
