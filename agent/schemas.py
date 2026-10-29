@@ -52,7 +52,9 @@ class Confidence(str, Enum):
 class ResearchResponse(BaseModel):
     question: str
     short_answer: str = Field(max_length=600)
-    key_findings: list[Finding] = Field(min_length=1)
+    key_findings: list[Finding] = Field(
+        default=[], description="May be empty only for a low-confidence answer (e.g. insufficient evidence)"
+    )
     sources: list[Source]
     confidence: Confidence
     confidence_reason: str = Field(description="Why this confidence level")
@@ -72,4 +74,8 @@ class ResearchResponse(BaseModel):
         # Guardrail: "high" confidence needs at least 3 sources.
         if self.confidence == Confidence.high and len(self.sources) < 3:
             raise ValueError("High confidence requires at least 3 sources")
+
+        # No findings is an honest answer only when confidence is low.
+        if not self.key_findings and self.confidence != Confidence.low:
+            raise ValueError("key_findings may be empty only when confidence is low")
         return self

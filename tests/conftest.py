@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from agent import llm
+from agent import llm, orchestrator
 from agent.tools import net
 
 
@@ -29,6 +29,7 @@ def clock(monkeypatch):
     for module in (net, llm):
         monkeypatch.setattr(module, "_monotonic", fake.monotonic)
         monkeypatch.setattr(module, "_sleep", fake.advance)
+    monkeypatch.setattr(orchestrator, "_monotonic", fake.monotonic)
     return fake
 
 
