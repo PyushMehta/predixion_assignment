@@ -1,118 +1,96 @@
 {
   "question": "Is nuclear power safer than wind per TWh of electricity?",
-  "short_answer": "The available data show that nuclear power’s death rate per terawatt‑hour is roughly 0.03‑0.07, while wind’s rate is reported between about 0.03 and 0.15 deaths per TWh. Several sources (S1, S2, S4, S7, S8) give similar low values for both, suggesting comparable safety, whereas other sources (S6, S8) argue nuclear is modestly safer (e.g., 0.01 vs 0.04 deaths/TWh). Overall, the evidence points to nuclear being at least as safe as wind per TWh, with a possible slight safety advantage, but the uncertainties overlap.",
+  "short_answer": "Comparing the exact safety of nuclear versus wind per TWh is complicated because estimates vary and the numbers are small, leading sources to overlap. Some datasets list wind slightly lower or higher depending on the specific study and year (e.g., wind at ~0.04 deaths/TWh and nuclear ranging between ~0.03 and 0.07 deaths/TWh). Regardless of marginal differences at the bottom, both nuclear and wind are vastly safer than fossil fuels.",
   "key_findings": [
     {
-      "claim": "Our World in Data reports death rates for nuclear, solar and wind are comparable, around 0.04 deaths per TWh",
+      "claim": "Nuclear energy averages around 0.07 deaths per TWh, according to figures incorporating accidents like Chernobyl and Fukushima.",
       "source_ids": [
         "S1"
       ]
     },
     {
-      "claim": "NextBigFuture lists nuclear at about 0.04 deaths/TWh and wind estimates ranging from 0.15 to 0.4 deaths/TWh (earlier periods) and 1.9 deaths/TWh for construction‑related deaths",
+      "claim": "Some metrics list wind power at 0.04 deaths per TWh and nuclear at 0.03 deaths per TWh, while others list wind around 0.035 or 0.04 deaths/TWh.",
       "source_ids": [
-        "S2"
-      ]
-    },
-    {
-      "claim": "Energy Ethics cites nuclear at 0.07 deaths/TWh; no wind figure given",
-      "source_ids": [
-        "S3"
-      ]
-    },
-    {
-      "claim": "Skeptical Science states wind causes only 0.04 deaths/TWh; nuclear not directly quoted but implied to be similar or lower",
-      "source_ids": [
-        "S4"
-      ]
-    },
-    {
-      "claim": "Cheat sheet lists wind at 0.035 deaths/TWh; nuclear not listed but other OWID data suggest similar magnitude",
-      "source_ids": [
+        "S4",
+        "S5",
         "S7"
       ]
     },
     {
-      "claim": "Snippet sources claim nuclear death rate 0.01‑0.03 deaths/TWh, making it roughly three times safer than wind (wind ~0.04 deaths/TWh)",
+      "claim": "Uncertainties around the marginal differences between nuclear, solar, and wind mean their values are likely to overlap, making direct distinctions minor compared to fossil fuels.",
       "source_ids": [
-        "S6",
-        "S8"
+        "S2"
       ]
     }
   ],
   "sources": [
     {
       "id": "S1",
-      "title": "What are the safest and cleanest sources of energy? | Our World in Data",
-      "url": "https://ourworldindata.org/safest-sources-of-energy",
-      "snippet": "Coal: 25 people would die prematurely every year;\n Oil: 18 people would die prematurely every year;\n Gas: 3 people would die prematurely every year;\n Hydropower: In an average year, 1 person would die;\n Wind: In an average year, nobody would die. A death rate of 0.04 deaths per terawatt-hour means every 25 years, a single person would die;\n Nuclear: In an average year, nobody would die — only every 33 years would someone die. [...] The other source heavily influenced by a few large-scale acciden",
-      "relevance": 0.8080827
-    },
-    {
-      "id": "S2",
-      "title": "Deaths per TWH by energy source – NextBigFuture.com",
-      "url": "https://www.nextbigfuture.com/2011/03/deaths-per-twh-by-energy-source.html",
-      "snippet": "Wind power proponent and author Paul Gipe estimated in Wind Energy Comes of Age that the mortality rate for wind power from 1980–1994 was 0.4 deaths per terawatt-hour. Paul Gipe’s estimate as of end 2000 was 0.15 deaths per TWh, a decline attributed to greater total cumulative generation.\n\nHydroelectric power was found to to have a fatality rate of 0.10 per TWh (883 fatalities for every TW·yr) in the period 1969–1996\n\nNuclear power is about 0.04 deaths/TWh. [...] > Wind power proponent and autho",
-      "relevance": 0.93610436
-    },
-    {
-      "id": "S3",
       "title": "Understanding energy: Why are we talking about nuclear energy again? | Energy Ethics",
       "url": "https://energyethics.st-andrews.ac.uk/blog/understanding-energy-why-are-we-talking-about-nuclear-energy-again",
       "snippet": "cases) as well as consequences of air pollution. While these are grim numbers to compare, they are also very revealing: Despite the large disasters, nuclear energy on average leads to only 0.07 deaths per TWh, counting both the accidents at Chernobyl and Fukushima, see the figure below. While any death is one too many, in comparison coal and oil production lead to 24.6 and 18.4 deaths per TWh, respectively. To put these numbers into perspective we can consider a European town of about 187,000 [.",
-      "relevance": 0.779339
+      "relevance": 0.8863518
+    },
+    {
+      "id": "S2",
+      "title": "Nuclear Energy | Our World in Data",
+      "url": "https://ourworldindata.org/nuclear-energy",
+      "snippet": "The other source heavily influenced by a few large-scale accidents is hydropower. Its death rate since 1965 is 1.3 deaths per TWh. This rate is almost completely dominated by one event: the Banqiao Dam Failure in China in 1975, which killed approximately 171,000 people. Otherwise, hydropower was very safe, with a death rate of just 0.04 deaths per TWh — comparable to nuclear, solar, and wind. [...] Coal: 24.62 deaths per TWh \\ 10,042 TWh = 247,000 deaths; Oil: 18.43 deaths per TWh \\ 852 TWh = 16",
+      "relevance": 0.8795718
+    },
+    {
+      "id": "S3",
+      "title": "What are the safest and cleanest sources of energy? | Our World in Data",
+      "url": "https://ourworldindata.org/safest-sources-of-energy",
+      "snippet": "I have calculated death rates by dividing this figure by cumulative global electricity production from nuclear from 1965 to 2021, which is 96,876 TWh. [...] The other source heavily influenced by a few large-scale accidents is hydropower. Its death rate since 1965 is 1.3 deaths per TWh. This rate is almost completely dominated by one event: the Banqiao Dam Failure in China in 1975, which killed approximately 171,000 people. Otherwise, hydropower was very safe, with a death rate of just 0.04 deat",
+      "relevance": 0.7722049
     },
     {
       "id": "S4",
-      "title": "Are wind turbines error prone and a threat to human health and safety?",
-      "url": "https://skepticalscience.com/print.php?r=502",
-      "snippet": "When looking at deaths per terawatt-hour of energy produced, the mortality rate from wind energy pales in comparison to the risks associated with fossil fuels. Brown coal causes 32.72 human deaths per terawatt-hour, while black coal causes 24.6 human deaths, oil causes 18.4 human deaths, natural gas causes 2.8 human deaths, and wind energy causes only 0.04 human deaths5.\n\nFigure 1: Death rates per unit of electricity production. Source: Hannah Ritchie, Our World in Data.\n\nFootnotes: [...] Hannah",
-      "relevance": 0.8995547
+      "title": "All About Nuclear Power – Everything Everywhere",
+      "url": "https://everything-everywhere.com/all-about-nuclear-power",
+      "snippet": "Nuclear has 0.03 deaths/TWh.\n\nSolar has 0.02 deaths/TWh.\n\nDespite everything that nuclear power has going for it, the percentage of electricity produced by nuclear power has dropped over the years. Today, the percentage of electricity produced by nuclear is about 10%, which is down from approximately 17% in the mid-1990s. [...] A 1-gigawatt nuclear plant takes up about 1.3 square miles, based on currently existing plants. Solar power takes up approximately 10 to 20 times the land to produce the ",
+      "relevance": 0.91288006
     },
     {
       "id": "S5",
-      "title": "Chart: Which power sources are most deadly? Hint — not… | Canary Media",
-      "url": "https://www.canarymedia.com/articles/fossil-fuels/which-power-sources-are-most-deadly-hint-not-solar-and-wind",
-      "snippet": "The burning of biomass — wood, charcoal and dung — causes 4.6 deaths per terawatt-hour of electricity, again largely because of air pollution.\n\nIt might surprise some that nuclear is the second-safest form of electricity — even when accounting for deaths caused by the Chernobyl nuclear disaster in 1986 and the Fukushima nuclear accident in 2011. [...] Coal, which generates about 35% of electricity worldwide, is the deadliest power source, responsible for nearly 25 deaths per terawatt-hour of ele",
-      "relevance": 0.8668671
+      "title": "Deaths per Terawatt-Hour: Every Energy Source, Ranked",
+      "url": "https://cheatsheets.davidveksler.com/deaths-per-terawatt-hour.html",
+      "snippet": "Wind0.035 deaths/TWh; maintenance, offshore work, helicopter, fire, and construction accidents dominate Solar0.019 deaths/TWh; rooftop falls, electrical work, manufacturing, and installation dominate MechanismSmall, distributed worker-safety risk instead of chronic air pollution or single-site catastrophe Policy lessonTreat low-carbon construction safety as real safety work, not as a rounding error [...] ## Deaths per TWh, log scale central values from OWID 2021 synthesis; fossil values likely c",
+      "relevance": 0.8539252
     },
     {
       "id": "S6",
       "title": "Safer than wind? The truth about nuclear power - Simcenter",
       "url": "https://blogs.sw.siemens.com/simcenter/safer-than-wind-the-truth-about-nuclear-safety",
-      "snippet": "I should probably confess at this stage, the graphs and 27,000 people thought experiments are borrowed from this excellent article from Oxford University which goes into more detail than this blog.\n\n## But what about solar, wind and hydro?\n\n“But what about renewable sources of energy?”, I hear you ask, well even then, nuclear compares favorably. If you accept the 2016 estimate of 0.01 TWh per nuclear fatality, then nuclear is approximately three times safer than even wind energy: [...] And what ",
-      "relevance": 0.7961819
+      "snippet": "I should probably confess at this stage, the graphs and 27,000 people thought experiments are borrowed from this excellent article from Oxford University which goes into more detail than this blog.\n\n## But what about solar, wind and hydro?\n\n“But what about renewable sources of energy?”, I hear you ask, well even then, nuclear compares favorably. If you accept the 2016 estimate of 0.01 TWh per nuclear fatality, then nuclear is approximately three times safer than even wind energy: [...] did not i",
+      "relevance": 0.8446273
     },
     {
       "id": "S7",
-      "title": "Deaths per Terawatt-Hour: Every Energy Source, Ranked",
-      "url": "https://cheatsheets.davidveksler.com/deaths-per-terawatt-hour.html",
-      "snippet": "Wind0.035 deaths/TWh; maintenance, offshore work, helicopter, fire, and construction accidents dominate Solar0.019 deaths/TWh; rooftop falls, electrical work, manufacturing, and installation dominate MechanismSmall, distributed worker-safety risk instead of chronic air pollution or single-site catastrophe Policy lessonTreat low-carbon construction safety as real safety work, not as a rounding error [...] ## Deaths per TWh, log scale central values from OWID 2021 synthesis; fossil values likely c",
-      "relevance": 0.79484755
+      "title": "Global deaths per energy source | Statista",
+      "url": "https://www.statista.com/statistics/494425/death-rate-worldwide-by-energy-source",
+      "snippet": "## Safest energy source\n\nClean and renewable energy sources are unsurprisingly the least deadly energy sources, with \n0.04\n and \n0.02\n deaths associated with wind and solar per unit of electricity, respectively. Nuclear energy also has a low death rate, even after the inclusion of nuclear catastrophes like Chernobyl and Fukushima.\n\n## Related insights\n\n## Get in touch with us for additional information\n\nFeel free to contact us anytime. We will respond to your inquiry as quickly as possible. [...",
+      "relevance": 0.6991933
     },
     {
       "id": "S8",
-      "title": "The Safest and Cleanest Sources of Energy: Why Solar Shines Bright in 2025",
-      "url": "https://solar22.com/safest-energy-sources",
-      "snippet": "Nuclear Energy is even safer, with a death rate of 0.03 deaths per TWh, despite high-profile disasters like Chernobyl and Fukushima. It emits a mere 6 tonnes of CO₂-equivalent per GWh—making it the cleanest in terms of emissions. Nuclear provides 10% of global electricity and proves that safety and low emissions can go hand in hand. [...] Wind energy is incredibly safe, with a death rate of just 0.04 deaths per TWh, and it emits only 11 tonnes of CO₂-equivalent per GWh. Supplying 7% of global el",
-      "relevance": 0.69622743
+      "title": "Chart: Which power sources are most deadly? Hint — not… | Canary Media",
+      "url": "https://www.canarymedia.com/articles/fossil-fuels/which-power-sources-are-most-deadly-hint-not-solar-and-wind",
+      "snippet": "Solar is the safest of all electricity sources, and wind power ranks close behind. Hydropower is the renewable energy source with the highest deaths per terawatt-hour produced, largely because of a single event, the Banqiao Dam Failure in China in 1975, which was caused by a typhoon and killed more than 170,000 people. [...] Coal, which generates about 35% of electricity worldwide, is the deadliest power source, responsible for nearly 25 deaths per terawatt-hour of electricity produced, accordin",
+      "relevance": 0.5855047
     }
   ],
   "confidence": "medium",
-  "confidence_reason": "Multiple independent sources provide low death‑rate figures for both nuclear and wind, with several indicating nuclear is slightly lower, but the reported ranges overlap and some data are from snippets, leading to moderate confidence in the conclusion that nuclear is at least as safe, possibly marginally safer.",
+  "confidence_reason": "While different data syntheses show both nuclear and wind to have exceptionally low death rates per TWh compared to fossil fuels, the specific numerical ranking between nuclear and wind varies slightly depending on the dataset and year, and sources note that these small values overlap due to underlying uncertainties.",
   "assumptions": [
-    "Death rates per TWh are taken as the primary safety metric",
-    "Numbers from different studies are assumed comparable despite differing years and methodologies"
+    "The question asks about direct comparisons of fatality rates per TWh between nuclear and wind power based on existing historical estimates."
   ],
   "limitations": [
-    "Some sources are snippet‑only and provide limited context",
-    "Estimates vary widely (e.g., wind 0.04‑0.15 deaths/TWh)",
-    "Construction‑phase deaths may be counted differently across sources",
-    "Data may be outdated or based on limited incident records"
+    "No timely or perfectly tracked dataset exists for tracking all energy supply-chain accidents, creating inherent gaps.",
+    "Calculations for nuclear include historical estimates from large-scale disasters like Chernobyl and Fukushima, which can vary based on assumptions regarding long-term health consequences."
   ],
   "next_steps": [
-    "Locate a recent comprehensive dataset that reports deaths per TWh for both nuclear and wind using consistent methodology.",
-    "Compare construction‑phase versus operational‑phase fatalities for each technology.",
-    "Assess the uncertainty ranges reported in the primary studies to quantify overlap."
+    "Review comprehensive underlying datasets from Our World in Data to analyze the specific error margins and synthesis years for nuclear and wind safety statistics."
   ]
 }

@@ -51,7 +51,7 @@ agent/
   orchestrator.py  # guardrail: "high" needs 3+ cited full-page sources from different non-vendor sites
   orchestrator.py  # run(question) -> RunResult; budgets: 2 LLM calls, 4 scrapes, 90s for the
                    # WHOLE run (planner + gathering by 60s, synthesis gets the rest); trace -> runs/
-eval/queries.yaml     # 8 eval queries with id, category, EXPECTED behaviour (written before running)
+eval/queries.yaml     # 9 eval queries with id, category, EXPECTED behaviour (written before running)
 eval/run_eval.py      # harness: real agent per query, automatic checks, --baseline (1 LLM call, no tools),
                       # --only, --merge; deadline_hit = total run time > 90s
 eval/compare.py       # before/after report -> eval/results/comparison.md (re-scores both runs alike)

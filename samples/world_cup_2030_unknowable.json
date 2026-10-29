@@ -1,93 +1,95 @@
 {
   "question": "Who will win the 2030 FIFA World Cup?",
-  "short_answer": "No official winner of the 2030 FIFA World Cup is known; current betting odds and media speculation suggest Spain is the early favorite, but this is only a prediction and not a confirmed outcome.",
+  "short_answer": "It is not currently known who will win the 2030 FIFA World Cup, as the tournament has not yet taken place. Predictions, odds, and forecasts are not facts. However, early sportsbooks and rankings list Spain as an early favorite to win the tournament, which they are co-hosting alongside Morocco and Portugal.",
   "key_findings": [
     {
-      "claim": "There is no official determination of the 2030 World Cup champion at this time.",
+      "claim": "The 2030 FIFA World Cup will be jointly hosted by Morocco, Portugal, and Spain, with commemorative matches in Argentina, Paraguay, and Uruguay.",
       "source_ids": [
         "S1",
-        "S2"
+        "S2",
+        "S3",
+        "S5",
+        "S7",
+        "S8"
       ]
     },
     {
-      "claim": "Betting odds and media previews list Spain as the favorite to win the 2030 World Cup.",
+      "claim": "Spain opened as an early consensus favorite or frontrunner to win the 2030 tournament.",
       "source_ids": [
-        "S6",
-        "S7",
-        "S8"
+        "S4",
+        "S6"
       ]
     }
   ],
   "sources": [
     {
       "id": "S1",
-      "title": "2030 FIFA World Cup - Wikipedia",
-      "url": "https://en.wikipedia.org/wiki/2030_FIFA_World_Cup",
-      "snippet": "The 2030 FIFA World Cup is scheduled to be the 24th FIFA World Cup, the quadrennial international football tournament that is contested by the men's national teams of the member associations of FIFA. The tournament is planned to be jointly hosted by Morocco, Portugal, and Spain. In honour of the 100th anniversary of the first edition in 1930, a special match and celebration are scheduled to be held at Estadio Centenario in Montevideo, Uruguay—host stadium of the 1930 final—as well as one match [",
-      "relevance": 0.9379027
+      "title": "Ranking the 10 Favorites to Win the 2030 World Cup",
+      "url": "https://www.si.com/soccer/ranking-favorites-win-2030-world-cup",
+      "snippet": "Morocco, Portugal and Spain will share the bulk of the hosting duties, but there will also be room for one match in each of Argentina, Paraguay and Uruguay (because, FIFA) as the World Cup keeps on expanding.\n\nBut, just who is the early very favorite to lift the trophy and add a star to its players’s chests four summers from now?\n\nPredicting anything in soccer is a mug’s game, so here we go anyway. Here are the favorites to win the next World Cup in 2030—ranked.\n\n## 10. Norway [...] Enter: Jürge",
+      "relevance": 0.9106172
     },
     {
       "id": "S2",
-      "title": "2030 FIFA World Cup bids - Wikipedia",
-      "url": "https://en.wikipedia.org/wiki/2030_FIFA_World_Cup_bids",
-      "snippet": "The 2030 FIFA World Cup bidding process resulted in the Fédération Internationale de Football Association (FIFA) selecting the joint bid as the location for the 2030 FIFA World Cup: Morocco, Portugal, and Spain as the host nations. Additionally, Argentina, Paraguay, and Uruguay will serve as nations that open the event, as a commemoration of the 100th anniversary of the first World Cup.\n\n## Host selection\n\n[edit] [...] [edit]\n\nThe vote to ratify Spain, Portugal, and Morocco as main hosts of the ",
-      "relevance": 0.9310187
+      "title": "2030 FIFA World Cup - Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/2030_FIFA_World_Cup",
+      "snippet": "The 2030 FIFA World Cup is scheduled to be the 24th FIFA World Cup, the quadrennial international football tournament that is contested by the men's national teams of the member associations of FIFA. The tournament is planned to be jointly hosted by Morocco, Portugal, and Spain. In honour of the 100th anniversary of the first edition in 1930, a special match and celebration are scheduled to be held at Estadio Centenario in Montevideo, Uruguay—host stadium of the 1930 final—as well as one match [",
+      "relevance": 0.8997663
     },
     {
       "id": "S3",
-      "title": "2030 World Cup: Host, Locations and Format",
-      "url": "https://www.si.com/soccer/2030-world-cup-host-locations-format",
-      "snippet": "The 2030 World Cup will be primarily hosted by Morocco, Portugal and Spain. To celebrate the tournament’s 100th anniversary, Uruguay, Argentina and Paraguay will also host one commemorative match each, with the celebrations beginning in South America.\n\n### Where Is The 2030 World Cup Final Expected To Be Held? [...] The 2026 World Cup made history as the first tournament hosted by three nations, with the United States, Canada, and Mexico sharing the stage.\n\nFour years later, the 2030 edition wil",
-      "relevance": 0.9159971
+      "title": "2030 World Cup: Locations, Hosts, Dates, For The Centenary Tournament | FOX Sports",
+      "url": "https://www.foxsports.com/stories/soccer/2030-world-cup-locations-hosts-dates-100-years",
+      "snippet": "The 2030 FIFA World Cup will be hosted by three nations: Morocco, Portugal and Spain. This marks the second time in the tournament's history that it has been hosted by three nations, with the 2026 World Cup being the first. [...] Morocco, Portugal and Spain were officially ratified as the co-hosts of the 2030 FIFA World Cup on Dec. 11, 2024, following a bidding process that started on Oct. 2020 and concluded on Oct. 2023 with the three nations as the sole bidder. Morocco wasn't originally part o",
+      "relevance": 0.89030397
     },
     {
       "id": "S4",
-      "title": "Where will the next World Cups be held? FIFA host countries for 2030, 2034 - Yahoo Sports",
-      "url": "https://sports.yahoo.com/soccer/article/where-will-the-next-world-cups-be-held-fifa-host-countries-for-2030-2034-130000081.html",
-      "snippet": "While the main hosts of the 2030 World Cup will be Morocco, Portugal and Spain, there will be three matches played in South America as part of the centenary celebration. Estadio Centenario in Montevideo, Uruguay, the site of the 1930 final, along with Estadio Monumental in Buenos Aires, Argentina, and Estadio Osvaldo Domínguez Dibb in Asunción, Paraguay, will host the opening games. [...] Uruguay, Argentina and Paraguay will each host their opening matches on June 8 and 9, 2030. On June 13-14, F",
-      "relevance": 0.9100432
+      "title": "2030 FIFA World Cup Odds & Win Probability: Spain Eyeing a Repeat Following Messi Retirement - Yahoo Sports",
+      "url": "https://sports.yahoo.com/articles/fifa-world-cup-odds-win-134100328.html",
+      "snippet": "That helps cement Spain even further as the standalone favorite ahead of the 2030 tournament they will host, alongside Morocco and Portugal.\n\n## World Cup odds 2030: Who will win?\n\nThe 2030 World Cup odds are currently off the board, but Spain opened as the consensus favorite after their 2026 victory over Argentina. Stay tuned to this page once DraftKings Sportsbook reposts the odds.\n\nA closer look at the market [...] France once again proved why it's among the world's premier footballing nation",
+      "relevance": 0.86632514
     },
     {
       "id": "S5",
-      "title": "FIFA: 2030 World Cup final host country decision to be made 'in due course' - ESPN",
-      "url": "https://www.espn.com/soccer/story/_/id/49892754/fifa-decision-morocco-vs-spain-host-2030-world-cup-final-made-due-course",
-      "snippet": "In addition to Spain, Portugal, and Morocco, Uruguay, Argentina, and Paraguay will host the opening matches for their respective national teams during the 2030 World Cup, as a tribute to the centenary of the 1930 World Cup, which was held entirely in Montevideo.\n\nThe dispute over the final comes with Infantino under intense pressure after UEFA, the umbrella organization of European federations, led a successful revolt to scuttle his plan to sell stakes in the World Cup. [...] ## ESPN\n\n# Soccer\n\n",
-      "relevance": 0.90039873
+      "title": "2030 World Cup: Host, Locations and Format",
+      "url": "https://www.si.com/soccer/2030-world-cup-host-locations-format",
+      "snippet": "The 2030 World Cup will be primarily hosted by Morocco, Portugal and Spain. To celebrate the tournament’s 100th anniversary, Uruguay, Argentina and Paraguay will also host one commemorative match each, with the celebrations beginning in South America.\n\n### Where Is The 2030 World Cup Final Expected To Be Held? [...] The final is expected to take place in Spain, with the Santiago Bernabéu in Madrid and Barcelona’s renovated Camp Nou among the leading contenders to host the tournament’s showpiece ",
+      "relevance": 0.8585411
     },
     {
       "id": "S6",
-      "title": "2030 FIFA World Cup Odds & Win Probability: Spain Eyeing a Repeat Following Messi Retirement - Yahoo Sports",
-      "url": "https://sports.yahoo.com/articles/fifa-world-cup-odds-win-134100328.html",
-      "snippet": "That helps cement Spain even further as the standalone favorite ahead of the 2030 tournament they will host, alongside Morocco and Portugal.\n\n## World Cup odds 2030: Who will win?\n\nThe 2030 World Cup odds are currently off the board, but Spain opened as the consensus favorite after their 2026 victory over Argentina. Stay tuned to this page once DraftKings Sportsbook reposts the odds.\n\nA closer look at the market [...] Outright winner: Pick which nation will lift the trophy.\n Group winner: Back a",
-      "relevance": 0.8649622
+      "title": "2030 World Cup Odds: Spain Favored To Repeat | FOX Sports",
+      "url": "https://www.foxsports.com/stories/soccer/2030-world-cup-title-odds",
+      "snippet": "Here's what to know about this oddsboard:\n\nThe Favorite: Spain opened the 2026 World Cup as one of the two pre-tournament favorites, and now, it has opened as the favorite to lift the trophy again in 2030. The outlook is especially promising with a young core expected to remain together, led by Lamine Yamal, who will be just 23 years old at the next World Cup. In addition, Pau Cubarsí will remain in the fold, after winning the Young Player of the Tournament award this go-round. [...] Spain: +500",
+      "relevance": 0.8576849
     },
     {
       "id": "S7",
-      "title": "2030 World Cup Odds | Who Wins Next World Cup?",
-      "url": "https://www.vegasinsider.com/soccer/odds/world-cup",
-      "snippet": "\"The 2026 World Cup was record-breaking at BetMGM on many fronts, including the Spain-Argentina final being the most-bet soccer match in company history.\"\n\nAnd it was most-bet by both ticket count and total money wagered.\n\nShortly after the final, BetMGM posted its 2030 World Cup odds, leading off with Spain at +400. France and Portugal followed as the +600 co-second choice, then four more squads bunched up at the top: [...] Spain sits atop 2030 World Cup futures odds, followed by France, the te",
-      "relevance": 0.8616433
+      "title": "FIFA World Cup 2030™",
+      "url": "https://inside.fifa.com/tournament-organisation/world-cup-2030",
+      "snippet": "FIFA\n\n###### Tournament organisation\n\n# FIFA World Cup 2030™\n\n##### The road to the FIFA World Cup 2030™\n\nAll 211 FIFA Member Associations convened virtually at an Extraordinary FIFA Congress where Morocco, Portugal and Spain were appointed as the hosts of the FIFA World Cup 2030™, with three centenary celebration matches to be held in Argentina, Paraguay and Uruguay (one in each country). [...] FIFA World Cup 2030™ | Three centenary celebration matches to be held in Argentina, Paraguay and Urug",
+      "relevance": 0.82288796
     },
     {
       "id": "S8",
-      "title": "World Cup futures odds: Spain early favorite to repeat in 2030 - CBS Sports",
-      "url": "https://www.cbssports.com/betting/news/world-cup-futures-odds-spain-early-favorite-to-repeat-in-2030",
-      "snippet": "\"(Manager) Luis de la Fuente's squad combines experience, talent and youth, with stars like Pau Cubarsi and Lamine Yamal set to be only 23 years old at the 2030 World Cup,\" Porzio said. \"Spain have the potential to dominate world football for years.\"\n\nAt least one major sportsbook agrees with Porzio. DraftKings Sportsbook lists Spain as the favorite to win the title in 2030 at +450. France is the second favorite, priced at +600, while Portugal and England both have +900 odds. [...] TEAM\n\nDRAFTKI",
-      "relevance": 0.85624856
+      "title": "2030 FIFA World Cup bids - Wikipedia",
+      "url": "https://en.wikipedia.org/wiki/2030_FIFA_World_Cup_bids",
+      "snippet": "The 2030 FIFA World Cup bidding process resulted in the Fédération Internationale de Football Association (FIFA) selecting the joint bid as the location for the 2030 FIFA World Cup: Morocco, Portugal, and Spain as the host nations. Additionally, Argentina, Paraguay, and Uruguay will serve as nations that open the event, as a commemoration of the 100th anniversary of the first World Cup.\n\n## Host selection\n\n[edit] [...] [edit]\n\nThe vote to ratify Spain, Portugal, and Morocco as main hosts of the ",
+      "relevance": 0.8170061
     }
   ],
   "confidence": "low",
-  "confidence_reason": "The answer relies solely on speculative betting odds and media speculation, with no official results; sources are snippet‑only and do not constitute factual confirmation.",
+  "confidence_reason": "Because the question asks about a future sporting event that has not yet occurred, the outcome cannot be known as a fact. Future events and tournament winners are inherently unpredictable.",
   "assumptions": [
-    "The question is interpreted as asking which team is most likely to win based on current publicly available predictions."
+    "The user is asking about the ultimate winner of the 2030 FIFA World Cup tournament."
   ],
   "limitations": [
-    "All sources providing a likely winner are speculative odds or media commentary, not official FIFA statements; odds can change and do not guarantee outcomes.",
+    "The 2030 tournament is years away, and actual match outcomes, qualifying teams, and final rosters have not yet been determined.",
     "This question is about the future or something not yet knowable. Predictions, odds and forecasts reported here are not facts."
   ],
   "next_steps": [
-    "Monitor official FIFA announcements for the actual tournament result.",
-    "Track updates to betting odds from reputable sportsbooks as the tournament approaches.",
-    "Consult comprehensive sports analysis after the tournament concludes to confirm the winner."
+    "Monitor future FIFA tournament results and qualifying matches leading up to 2030.",
+    "Check updated sports betting markets and expert analysis closer to the tournament start date."
   ]
 }

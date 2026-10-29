@@ -8,12 +8,34 @@ answer, key findings each citing sources, a confidence level with its reason,
 assumptions, limitations and next steps. Every run also writes a full trace
 (plan, tool calls, filter decisions, LLM calls, guardrails, timings).
 
-- Python 3.11+ (developed and tested on 3.14), Pydantic v2, no agent framework
+- Python 3.11+ (test suite passes on 3.11.9 and 3.14.6), Pydantic v2, no agent framework
 - LLM through the OpenAI SDK against any OpenAI-compatible endpoint
   (default: Groq primary, Google Gemini fallback, both free tiers)
-- 188 offline tests; an evaluation harness with a no-tools baseline and
-  before/after results in [`EVALUATION.md`](EVALUATION.md)
+- 188 offline tests; an evaluation harness with a no-tools baseline, and the
+  write-up of method and before/after results in [`EVALUATION.md`](EVALUATION.md)
 - Design decisions and their reasons, phase by phase: [`NOTES.md`](NOTES.md)
+
+### Results at a glance
+
+Before the evaluation-driven fixes → after them → final run (details in
+[`EVALUATION.md`](EVALUATION.md)):
+
+| | before | after | final |
+|---|---|---|---|
+| slowest run | 109.1s | 31.9s | 10.9s* |
+| runs over the 90s budget | 1 of 8 | 0 of 8 | 0 of 8 |
+| social / video / forum sources kept | 3 | 0 | 1 |
+| crash-free, schema, citations, confidence rules | 8/8 | 8/8 | 8/8 (and 9/9 incl. the new query) |
+| answers clearly better than a no-tools LLM call (manual review) | 0 of 8 | 3 of 8 | 2 of 9 |
+
+The nuclear vs wind answer went from misleading (2011 data) to correct
+(Our World in Data's figures, found by passage selection), and stayed correct.
+
+\* In the final run Groq's daily free-tier quota was exhausted, so the Gemini
+fallback answered almost every LLM call (the failover worked every time).
+Its latency reflects Gemini on a stable network, not only the code.
+
+Demo video: *(link to be added)*
 
 ---
 
@@ -84,7 +106,7 @@ streamlit run app.py
 # Tests: offline, no keys needed (network and LLM are faked)
 python -m pytest -q
 
-# Evaluation: 8 queries through the real agent, ~5-10 minutes on free tiers
+# Evaluation: 9 queries through the real agent, ~5-10 minutes on free tiers
 python eval/run_eval.py --baseline            # also answers each query with one no-tools LLM call
 python eval/run_eval.py --only nonsense,prompt_injection
 python eval/compare.py eval/results/20261029-213848.json eval/results/20261029-215619.json \
@@ -114,6 +136,21 @@ Sample outputs from the latest evaluation run are in [`samples/`](samples/):
 - [nonsense query](samples/nonsense_insufficient_evidence.md): insufficient evidence
 - [2030 World Cup](samples/world_cup_2030_unknowable.md): low confidence on an unknowable question
 
+Excerpt from the nuclear vs wind sample (real output, final eval run
+`20261030-013032`; sources, assumptions and limitations omitted):
+
+```text
+## Answer
+Comparing the exact safety of nuclear versus wind per TWh is complicated because estimates vary and the numbers are small, leading sources to overlap. Some datasets list wind slightly lower or higher depending on the specific study and year (e.g., wind at ~0.04 deaths/TWh and nuclear ranging between ~0.03 and 0.07 deaths/TWh). Regardless of marginal differences at the bottom, both nuclear and wind are vastly safer than fossil fuels.
+
+**Confidence:** medium: While different data syntheses show both nuclear and wind to have exceptionally low death rates per TWh compared to fossil fuels, the specific numerical ranking between nuclear and wind varies slightly depending on the dataset and year, and sources note that these small values overlap due to underlying uncertainties.
+
+## Key findings
+- Nuclear energy averages around 0.07 deaths per TWh, according to figures incorporating accidents like Chernobyl and Fukushima. [S1]
+- Some metrics list wind power at 0.04 deaths per TWh and nuclear at 0.03 deaths per TWh, while others list wind around 0.035 or 0.04 deaths/TWh. [S4, S5, S7]
+- Uncertainties around the marginal differences between nuclear, solar, and wind mean their values are likely to overlap, making direct distinctions minor compared to fossil fuels. [S2]
+```
+
 ---
 
 ## Architecture
@@ -128,7 +165,7 @@ flowchart TD
     P -. LLM fails .-> PF[Deterministic one-search plan]
     P --> S["web_search steps in parallel<br/>(Tavily)"]
     PF --> S
-    S --> D{"Plan needs<br/>full pages?"}
+    S --> D{"Full pages needed?<br/>planner decides; a code rule<br/>forces yes for comparison /<br/>numeric questions"}
     D -- "no (simple factual):<br/>snippets only" --> F
     D -- yes --> T["Choose up to 4 pages to read<br/>URLs from the question, planner URLs seen in results,<br/>best results by relevance + source quality"]
     T --> SC["scrape_page in parallel<br/>(httpx + trafilatura)"]
@@ -168,8 +205,8 @@ fallback provider.
 | `agent/tools/injection.py` | Prompt-injection phrase check for web text (flags, never deletes). |
 | `agent/tools/results.py` | Typed tool results: `SearchResult`, `SearchItem`, `PageResult`. |
 | `eval/run_eval.py` | Evaluation harness: real agent per query, automatic checks, `--baseline`, `--only`, `--merge`. |
-| `eval/compare.py` | Before/after report from two eval result files. |
-| `eval/queries.yaml` | The 8 evaluation queries with expected behaviour. |
+| `eval/compare.py` | Side-by-side report from two or more eval result files (before / after / final). |
+| `eval/queries.yaml` | The 9 evaluation queries with expected behaviour. |
 
 ---
 
@@ -187,11 +224,13 @@ The agentic part is deliberately small: one planner call decides *what to
 look up*, and code executes the plan, reads pages, filters and checks. There
 is no open-ended tool loop. That keeps cost and latency predictable (exactly 2
 logical LLM calls, at most 4 page reads, a 90s budget) and makes failures easy
-to locate in the trace. In the evaluation, after the Phase 5 fixes the agent
-was clearly better than the no-tools baseline on 3 of 8 queries, worse on 1
-and comparable on the rest. Its consistent advantage is traceability: the
-manual review could only catch problems, such as a competitor's blog
-describing a company, because the agent cited its sources.
+to locate in the trace. In the evaluation, the agent was clearly better than
+the no-tools baseline on 0 of 8 queries before the Phase 5 fixes, 3 of 8
+after them, and 2 of 9 in the final run, and clearly worse on 1 in each of
+the last two. Its consistent advantage is traceability: the manual review could
+only catch problems, such as a competitor's blog describing a company or a
+proof-of-concept statistic presented as fact, because the agent cited its
+sources.
 
 ## What tools did you use, and why?
 
@@ -202,7 +241,8 @@ describing a company, because the agent cited its sources.
 - **Tool selection depends on the task.** The planner sets
   `needs_full_pages`: false for simple factual questions (snippets are
   enough, so no pages are fetched; e.g. "What is the capital of Australia?"
-  took 6.1s with 0 pages read), and true for comparisons and research (up to
+  took 4.6s with 0 pages read in the final eval run), and true for comparisons
+  and research (up to
   4 pages read). Snippet-only answers are capped at medium confidence.
   A code rule overrides a "snippets" decision for comparison or numeric
   questions (compare, vs, pros and cons, top N, best, per, %, numbers with
@@ -291,9 +331,12 @@ None of the following is built; this is the plan, in rough priority order.
    repeated questions.
 5. **Service packaging:** an HTTP API instead of the CLI, a container image,
    secrets from a secret manager instead of `.env`, and structured JSON logs.
-6. **CI:** run the 188 tests on every change and a small eval subset nightly,
+6. **Tracing backend:** send each run's trace (plan, tool calls, LLM calls with
+   failed attempts, guardrails, timings) to Langfuse or OpenTelemetry instead
+   of local `runs/*.json`, so runs can be searched, compared and alerted on.
+7. **CI:** run the 188 tests on every change and a small eval subset nightly,
    failing the build on regressions in the automatic checks.
-7. **Data-driven source quality:** replace the hand-made domain lists with
+8. **Data-driven source quality:** replace the hand-made domain lists with
    learned or curated scores, and detect vendor/competitor bias.
 
 ## What would you monitor in production?
@@ -323,8 +366,8 @@ aggregate them.
 
 - **Fixed pipeline vs open-ended agent loop:** predictable cost and latency (2
   LLM calls, 4 page reads, 90s) and easy debugging, but no follow-up searches
-  when the first round misses. Example: official vector-database docs were
-  never found because the first searches didn't return them.
+  when the first round misses. Example: in the Phase 5 after run, no official
+  vector-database docs were found because the first searches didn't return them.
 - **Deterministic code vs LLM judgement for filtering, passage selection and
   guardrails:** cheap, fast, testable and explainable, but cruder than an LLM
   re-ranker. The quality lists and the BM25 passage scorer are simple
@@ -338,10 +381,12 @@ aggregate them.
   free-tier token limits: more sources, less text from each. Passage selection
   makes those 2,000 chars count.
 - **Temperature 0** for consistency, against Google's advice of 1.0 for Gemini 3
-  models. Probes showed no problem and it can be changed in `.env`.
-- **A small, honest evaluation:** 8 queries, one run each, one reviewer. It
-  is enough to find and fix the big problems, not enough for statistical
-  claims.
+  models. A single 4-call probe on Gemini Flash-Lite found no looping at
+  temperature 0 (numbers in [`NOTES.md`](NOTES.md), Phase 2); it's weak
+  evidence, so `LLM_TEMPERATURE` can be changed in `.env`.
+- **A small, honest evaluation:** 9 queries (8 in the before/after
+  comparison), one run each, one reviewer. It is enough to find and fix the
+  big problems, not enough for statistical claims.
 
 ---
 
@@ -353,25 +398,30 @@ From the evaluation and [`NOTES.md`](NOTES.md):
   answers were judged overconfident in manual review (e.g. India HR-tech jumped
   to high on press releases, a competitor's blog and directory snippets),
   because the "3+ sources" rule counted snippet-only and vendor sources. "High"
-  now needs 3+ cited, full-page sources from different, non-vendor sites. In the
-  final eval run, it downgraded vector_dbs from high to medium (the GitHub repos
-  cited were the products' own). *Still open:* vendors of *adjacent* products
-  and consultancies aren't detected (two answers kept "high" on such sites),
-  and vendor detection relies on capitalised names (a sentence-initial
-  "Medium" could mark medium.com as a vendor).
+  now needs 3+ cited, full-page sources from different, non-vendor sites. In
+  re-run 1 it downgraded vector_dbs from high to medium (the GitHub repos cited
+  were the products' own). *Still open:* vendors of *adjacent* products and
+  consultancies aren't detected; in the final run both "high" answers met the
+  rule but rested on such sites, and one carried a claim its source doesn't
+  support. Vendor detection also relies on capitalised names (a
+  sentence-initial "Medium" could mark medium.com as a vendor).
 - **Search coverage decides what can be found.** In the Phase 5 after run,
   Tavily returned no official documentation or GitHub pages for the vector-DB
   question, so the docs/GitHub boost had nothing to lift. Later runs did find
   GitHub and official docs, which shows search results vary between runs.
   *Fix:* add docs/GitHub-targeted queries to the plan for technical questions.
-- **Tool selection depended on the planner model (mitigated).** In the final
-  eval run (where the Gemini fallback did the planning), nuclear vs wind was
-  judged "snippets are enough", so Our World in Data wasn't read. A code
-  rule now forces full pages for comparison and numeric questions (compare,
-  vs/versus, pros and cons, top N, best, per, %, numbers with units, how
-  many/much) and records the override in the trace. Not yet re-run live: the
-  Groq quota was exhausted. Questions outside those patterns still rely on
-  the planner's judgement.
+- **Tool selection depended on the planner model (mitigated).** In re-run 1
+  (where the Gemini fallback did the planning), nuclear vs wind was judged
+  "snippets are enough", so Our World in Data wasn't read. A code rule now
+  forces full pages for comparison and numeric questions (compare, vs/versus,
+  pros and cons, top N, best, per, %, numbers with units, how many/much) and
+  records the override in the trace. In the final run the planner chose full
+  pages itself, so the rule didn't need to trigger, and OWID was read; the
+  override path has so far only been exercised by tests. Questions outside
+  those patterns still rely on the planner's judgement.
+- **No claim-support check, seen in practice.** The final multi-agent answer
+  presented one author's non-production proof of concept ("handles ~80% of
+  support scenarios") as a general fact, at high confidence.
 - **No entity checks.** For "Find 5 Indian B2B SaaS startups in HR tech", the
   before run included a company listed under Singapore, and the after run
   included two established vendors founded in 1994 and 2001. Constraints in
@@ -394,12 +444,17 @@ From the evaluation and [`NOTES.md`](NOTES.md):
 
 ## Note on how this was built
 
-An AI coding assistant (Claude Code) wrote the implementation and tests, and
-drafted the first-pass manual review of the evaluation answers. In that
-review it spot-checked claims against the live cited pages; the reviews are
-labelled `reviewer: Claude` in `eval/results/`. I wrote the phase-by-phase
-specifications and made the key decisions: architecture constraints,
-provider choice and order, schema changes, which evaluation findings to fix
-and in what order, and what to measure. Implementation-level design choices
-proposed by the assistant were reviewed and accepted by me; they are
-documented with their reasons in [`NOTES.md`](NOTES.md).
+**My role:** I wrote the phase-by-phase specifications and made the key
+decisions: architecture constraints (single agent, no framework, typed tool
+results, timeouts and retries everywhere), provider choice and order, schema
+changes, and which evaluation findings to fix and in what order. I designed
+the evaluation (queries with expected behaviour written before running, the
+no-tools baseline, before/after comparison) and verified and edited the
+manual review.
+
+**The AI coding assistant (Claude Code)** implemented the code and tests,
+ran the evaluations, and drafted the first-pass manual review, spot-checking
+claims against the live cited pages. The reviews in `eval/results/` are
+labelled accordingly. Implementation-level design choices proposed by the
+assistant were reviewed and accepted by me; they are documented with their
+reasons in [`NOTES.md`](NOTES.md).

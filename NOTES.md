@@ -63,6 +63,26 @@ What this means for `llm.py`:
 
 ---
 
+## Final eval run and EVALUATION.md
+
+The final run (`eval/results/20261030-013032`, 9 queries, `--baseline`) replaced
+the confounded re-run 1. A one-call Groq check succeeded just before it, but
+Groq's *daily* token quota (not visible in its rate-limit headers) ran out at
+the start, so Gemini answered every LLM call except vector_dbs's planner, with
+`failed_attempts` recording each failover. The network was stable. Results:
+everything 9/9 on the automatic checks, slowest run 10.9s, nuclear vs wind
+correct with Our World in Data read (the planner chose full pages itself, so the
+code rule didn't need to trigger). The manual review (first pass drafted by
+Claude, verified and edited by the author) found a new claim-support failure:
+multi_agent_support presented one author's proof-of-concept figure as a
+general fact at high confidence. The full write-up is in `EVALUATION.md`.
+
+**Lesson:** a successful single check call doesn't show the daily quota. Before
+a long eval, confirm the primary actually answers the first query, or
+reserve quota by not testing heavily the same day.
+
+---
+
 ## Failed LLM attempts in the trace
 
 Every failed LLM request is now recorded as a `FailedAttempt` (`agent/llm.py`):
@@ -667,6 +687,19 @@ Google "strongly recommends" 1.0 for Gemini 3 models and warns lower values
 `Plan` schema at temperature 0 vs default showed no looping and valid plans in
 similar time, so 0 is kept and `LLM_TEMPERATURE` lets us change it without a
 code edit. Groq converts 0 to 1e-8 internally.
+
+Probe results (2026-10-29, `gemini-3.5-flash-lite`, one call each, real `Plan`
+schema, question "Is nuclear power safer than wind per TWh?"):
+
+| variant | time | tokens in/out | result |
+|---|---|---|---|
+| non-strict json_schema, temperature 0 | 15.0s | 51/265 | valid Plan (3 sub-questions, 3 steps) |
+| non-strict json_schema, default temperature | 18.6s | 51/189 | valid Plan (2 sub-questions, 2 steps) |
+| non-strict, temperature 0, `reasoning_effort=low` | 14.6s | 51/256 | valid Plan (3, 3) |
+| strict json_schema, temperature 0 | 17.2s | 51/249 | valid Plan (3, 3) |
+
+Four single calls are weak evidence: they show no looping in this case, not
+that temperature 0 is safe in general.
 
 **Tests use a fake client.** `complete_structured` takes `providers=[Provider(name, model, client)]`
 rather than a single `client=`, because primary + fallback means two clients,

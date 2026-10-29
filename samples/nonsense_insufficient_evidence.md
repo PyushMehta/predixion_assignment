@@ -13,5 +13,5 @@ Insufficient evidence: the agent found no usable sources for this question, so i
 - Try again later in case search was temporarily unavailable.
 
 ---
-run 20261029-220011-552 | 6.8s | tool calls: 3 | LLM: plan: api.groq.com/openai/gpt-oss-120b 2.8s
-fallbacks: none | trace: runs/20261029-220011-552.json
+run 20261030-013313-374 | 7.0s | tool calls: 1 | LLM: plan: generativelanguage.googleapis.com/gemini-3.5-flash-lite 1.4s
+fallbacks: plan_fallback_provider | trace: runs/20261030-013313-374.json

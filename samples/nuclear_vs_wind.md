@@ -1,51 +1,43 @@
 # Is nuclear power safer than wind per TWh of electricity?
 
 ## Answer
-The available data show that nuclear power’s death rate per terawatt‑hour is roughly 0.03‑0.07, while wind’s rate is reported between about 0.03 and 0.15 deaths per TWh. Several sources (S1, S2, S4, S7, S8) give similar low values for both, suggesting comparable safety, whereas other sources (S6, S8) argue nuclear is modestly safer (e.g., 0.01 vs 0.04 deaths/TWh). Overall, the evidence points to nuclear being at least as safe as wind per TWh, with a possible slight safety advantage, but the uncertainties overlap.
+Comparing the exact safety of nuclear versus wind per TWh is complicated because estimates vary and the numbers are small, leading sources to overlap. Some datasets list wind slightly lower or higher depending on the specific study and year (e.g., wind at ~0.04 deaths/TWh and nuclear ranging between ~0.03 and 0.07 deaths/TWh). Regardless of marginal differences at the bottom, both nuclear and wind are vastly safer than fossil fuels.
 
-**Confidence:** medium: Multiple independent sources provide low death‑rate figures for both nuclear and wind, with several indicating nuclear is slightly lower, but the reported ranges overlap and some data are from snippets, leading to moderate confidence in the conclusion that nuclear is at least as safe, possibly marginally safer.
+**Confidence:** medium: While different data syntheses show both nuclear and wind to have exceptionally low death rates per TWh compared to fossil fuels, the specific numerical ranking between nuclear and wind varies slightly depending on the dataset and year, and sources note that these small values overlap due to underlying uncertainties.
 
 ## Key findings
-- Our World in Data reports death rates for nuclear, solar and wind are comparable, around 0.04 deaths per TWh [S1]
-- NextBigFuture lists nuclear at about 0.04 deaths/TWh and wind estimates ranging from 0.15 to 0.4 deaths/TWh (earlier periods) and 1.9 deaths/TWh for construction‑related deaths [S2]
-- Energy Ethics cites nuclear at 0.07 deaths/TWh; no wind figure given [S3]
-- Skeptical Science states wind causes only 0.04 deaths/TWh; nuclear not directly quoted but implied to be similar or lower [S4]
-- Cheat sheet lists wind at 0.035 deaths/TWh; nuclear not listed but other OWID data suggest similar magnitude [S7]
-- Snippet sources claim nuclear death rate 0.01‑0.03 deaths/TWh, making it roughly three times safer than wind (wind ~0.04 deaths/TWh) [S6, S8]
+- Nuclear energy averages around 0.07 deaths per TWh, according to figures incorporating accidents like Chernobyl and Fukushima. [S1]
+- Some metrics list wind power at 0.04 deaths per TWh and nuclear at 0.03 deaths per TWh, while others list wind around 0.035 or 0.04 deaths/TWh. [S4, S5, S7]
+- Uncertainties around the marginal differences between nuclear, solar, and wind mean their values are likely to overlap, making direct distinctions minor compared to fossil fuels. [S2]
 
 ## Sources
-- [S1] What are the safest and cleanest sources of energy? | Our World in Data
-  https://ourworldindata.org/safest-sources-of-energy
-- [S2] Deaths per TWH by energy source – NextBigFuture.com
-  https://www.nextbigfuture.com/2011/03/deaths-per-twh-by-energy-source.html
-- [S3] Understanding energy: Why are we talking about nuclear energy again? | Energy Ethics
+- [S1] Understanding energy: Why are we talking about nuclear energy again? | Energy Ethics
   https://energyethics.st-andrews.ac.uk/blog/understanding-energy-why-are-we-talking-about-nuclear-energy-again
-- [S4] Are wind turbines error prone and a threat to human health and safety?
-  https://skepticalscience.com/print.php?r=502
-- [S5] Chart: Which power sources are most deadly? Hint — not… | Canary Media
-  https://www.canarymedia.com/articles/fossil-fuels/which-power-sources-are-most-deadly-hint-not-solar-and-wind
+- [S2] Nuclear Energy | Our World in Data
+  https://ourworldindata.org/nuclear-energy
+- [S3] What are the safest and cleanest sources of energy? | Our World in Data
+  https://ourworldindata.org/safest-sources-of-energy
+- [S4] All About Nuclear Power – Everything Everywhere
+  https://everything-everywhere.com/all-about-nuclear-power
+- [S5] Deaths per Terawatt-Hour: Every Energy Source, Ranked
+  https://cheatsheets.davidveksler.com/deaths-per-terawatt-hour.html
 - [S6] Safer than wind? The truth about nuclear power - Simcenter
   https://blogs.sw.siemens.com/simcenter/safer-than-wind-the-truth-about-nuclear-safety
-- [S7] Deaths per Terawatt-Hour: Every Energy Source, Ranked
-  https://cheatsheets.davidveksler.com/deaths-per-terawatt-hour.html
-- [S8] The Safest and Cleanest Sources of Energy: Why Solar Shines Bright in 2025
-  https://solar22.com/safest-energy-sources
+- [S7] Global deaths per energy source | Statista
+  https://www.statista.com/statistics/494425/death-rate-worldwide-by-energy-source
+- [S8] Chart: Which power sources are most deadly? Hint — not… | Canary Media
+  https://www.canarymedia.com/articles/fossil-fuels/which-power-sources-are-most-deadly-hint-not-solar-and-wind
 
 ## Assumptions
-- Death rates per TWh are taken as the primary safety metric
-- Numbers from different studies are assumed comparable despite differing years and methodologies
+- The question asks about direct comparisons of fatality rates per TWh between nuclear and wind power based on existing historical estimates.
 
 ## Limitations
-- Some sources are snippet‑only and provide limited context
-- Estimates vary widely (e.g., wind 0.04‑0.15 deaths/TWh)
-- Construction‑phase deaths may be counted differently across sources
-- Data may be outdated or based on limited incident records
+- No timely or perfectly tracked dataset exists for tracking all energy supply-chain accidents, creating inherent gaps.
+- Calculations for nuclear include historical estimates from large-scale disasters like Chernobyl and Fukushima, which can vary based on assumptions regarding long-term health consequences.
 
 ## Next steps
-- Locate a recent comprehensive dataset that reports deaths per TWh for both nuclear and wind using consistent methodology.
-- Compare construction‑phase versus operational‑phase fatalities for each technology.
-- Assess the uncertainty ranges reported in the primary studies to quantify overlap.
+- Review comprehensive underlying datasets from Our World in Data to analyze the specific error margins and synthesis years for nuclear and wind safety statistics.
 
 ---
-run 20261029-215918-272 | 31.9s | tool calls: 7 | LLM: plan: api.groq.com/openai/gpt-oss-120b 3.1s, synthesis: api.groq.com/openai/gpt-oss-120b 23.2s
-fallbacks: none | trace: runs/20261029-215918-272.json
+run 20261030-013242-068 | 9.5s | tool calls: 7 | LLM: plan: generativelanguage.googleapis.com/gemini-3.5-flash-lite 1.7s, synthesis: generativelanguage.googleapis.com/gemini-3.5-flash-lite 2.8s
+fallbacks: plan_fallback_provider, synthesis_fallback_provider | trace: runs/20261030-013242-068.json
