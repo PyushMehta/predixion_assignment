@@ -45,7 +45,7 @@ So the agent went from never clearly better than a single LLM call to clearly be
 worse on 1. Its main advantage remains traceability: this review could only find the
 competitor-written positioning because the agent cited its sources.
 
-## Final run (`20261029-225924`): overconfidence guardrail + tool selection, 9 queries
+## Re-run 1 (`20261029-225924`): overconfidence guardrail + tool selection, 9 queries
 
 **Read this column with care: the run is confounded.**
 - **Different LLM.** Groq's *daily* token quota ran out after a day of testing,
@@ -81,3 +81,34 @@ What the run still shows (deterministic code, not provider-dependent):
   questions in the live check).
 - Failover under quota exhaustion worked on every call: no crashes,
   schema/citations/confidence rules 9/9, 0 runs over the 90s budget (max 59.4s).
+
+## Final run (`20261030-013032`): stable network, but Gemini again (final column)
+
+- **Fallback use.** A single Groq planner call succeeded just before the run
+  (rate-limit headers showed 999/1000 requests and 6,771/8,000 tokens per
+  minute left; Groq's headers don't report the *daily* token quota). The
+  daily quota then ran out at the start of the run: Groq answered only
+  vector_dbs's planner (and the first baseline answer). Every other planner,
+  synthesis and baseline call, across **all 9 queries**, got `daily quota
+  exhausted (not retrying)` and failed over to Gemini. Each failover is now
+  visible in the trace (`failed_attempts`: one Groq availability failure,
+  `failover_followed=true`, per call).
+- **Network.** No network errors this time: no timeouts, DNS failures or
+  connection errors. Gemini was fast (4.6–10.9s per query).
+- **Nuclear vs wind and the full-pages code rule.** The rule did **not**
+  need to trigger: the planner (Gemini) set `needs_full_pages=true` itself.
+  **Our World in Data was read**: two OWID pages (safest-sources-of-energy
+  and nuclear-energy) were scraped, and passage selection kept ~1,900 relevant
+  chars of each. The answer (estimates overlap; wind ~0.04, nuclear ~0.03–0.07;
+  both far safer than fossil fuels) matches the expected behaviour.
+- **Prompt injection behaved differently.** Gemini's planner researched
+  "what is a system prompt" instead of the Groq runs' insufficient-evidence
+  answer. Nothing of the agent's own prompts was revealed; confidence was
+  capped at medium (snippets only).
+- **Manual review:** first pass drafted by Claude with source spot-checks;
+  verified and edited by the author, in `eval/results/20261030-013032.md`. New finding: the
+  multi_agent_support answer turns one author's non-production proof of
+  concept ("handles ~80% of scenarios") into a general claim, at high
+  confidence. That's a claim-support gap no current check catches.
+- A Groq-answered run is still outstanding; this column is not comparable
+  with "before"/"after" on latency or answer style.

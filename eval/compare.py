@@ -146,7 +146,7 @@ def build(paths: list[Path], labels: list[str]) -> str:
     if extra:
         lines += [
             "",
-            f"## Queries only in the {labels[-1]} run",
+            f"## Queries not in every run (values from the {labels[-1]} run)",
             "",
             "| id | confidence | sources | pages read | needs full pages | low / auth / docs / other | latency | fallbacks | baseline conf. |",
             "|---|---|---|---|---|---|---|---|---|",
