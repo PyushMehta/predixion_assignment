@@ -35,7 +35,7 @@ The nuclear vs wind answer went from misleading (2011 data) to correct
 fallback answered almost every LLM call (the failover worked every time).
 Its latency reflects Gemini on a stable network, not only the code.
 
-Demo video: *(link to be added)*
+Demo video: https://drive.google.com/file/d/1-HuCacm6mR2jwTdA9aSkxsjSpnuYSzvq/view?usp=sharing
 
 ---
 
@@ -444,10 +444,12 @@ From the evaluation and [`NOTES.md`](NOTES.md):
 
 ## Note on how this was built
 
-**My role:** I wrote the phase-by-phase specifications and made the key
-decisions: architecture constraints (single agent, no framework, typed tool
-results, timeouts and retries everywhere), provider choice and order, schema
-changes, and which evaluation findings to fix and in what order. I designed
+**My role:** I planned the work and its phase-by-phase specifications with
+Claude (chat) acting as a mentor, reviewed each one, and directed Claude Code
+phase by phase. I made the key decisions: architecture constraints (single
+agent, no framework, typed tool results, timeouts and retries everywhere),
+provider choice and order, schema changes, and which evaluation findings to
+fix and in what order. I designed
 the evaluation (queries with expected behaviour written before running, the
 no-tools baseline, before/after comparison) and verified and edited the
 manual review.
